@@ -55,6 +55,9 @@ func New(c Config) (*Server, error) {
 func (s *Server) StopAdmission() { s.ready.Store(false) }
 func (s *Server) Close()         { s.transport.CloseIdleConnections() }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if serveDemo(w, r) {
+		return
+	}
 	if r.Method == http.MethodGet && (r.URL.Path == "/healthz" || r.URL.Path == "/readyz") {
 		if r.URL.Path == "/readyz" && !s.ready.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)

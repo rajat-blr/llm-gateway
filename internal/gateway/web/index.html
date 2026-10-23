@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Gateway · Interactive demo</title>
+  <link rel="stylesheet" href="/demo.css">
+  <script src="/demo.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a class="brand" href="/">G<span>↗</span></a><span class="eyebrow">LLM GATEWAY / GO</span><span class="badge">Protocol demo</span></header>
+    <section class="intro"><p class="eyebrow">ONE ENDPOINT. TWO PROTOCOLS.</p><h1>Watch the gateway<br>make the connection.</h1><p class="description">Send a text request and watch translated events arrive. The local demo uses a deterministic mock provider, so no paid API key is needed.</p></section>
+    <div class="workspace">
+      <section class="panel"><div class="panel-heading"><span class="number">01</span><h2>Request</h2><span class="method">POST /v1/chat/completions</span></div>
+        <form id="request-form">
+          <label for="model">Model alias</label><input id="model" name="model" list="aliases" value="default-chat" required><datalist id="aliases"><option value="default-chat">OpenAI adapter</option><option value="anthropic-chat">Anthropic adapter</option></datalist>
+          <p class="hint">Try <button type="button" id="switch-adapter" class="text-button">anthropic-chat</button> to use the other adapter.</p>
+          <label for="api-key">Gateway key</label><input id="api-key" name="api-key" type="password" value="demo-local-key" autocomplete="off" required><p class="hint">Pre-filled with the public local demo key. Use your configured key if you changed it. The page does not save keys.</p>
+          <label for="prompt">Message</label><textarea id="prompt" name="prompt" rows="4" maxlength="20000" required>Hello from the browser</textarea>
+          <div class="actions"><button id="run" type="submit">Run stream <span aria-hidden="true">↗</span></button><button id="stop" type="button" class="secondary" disabled>Stop</button></div>
+        </form>
+      </section>
+      <section class="panel output-panel"><div class="panel-heading"><span class="number">02</span><h2>Response</h2><span id="status" role="status" class="status">Ready</span></div>
+        <div id="empty-state" class="empty-state"><span class="cursor" aria-hidden="true">_</span><p>Your response starts here.</p><span>Run a request to see the stream.</span></div>
+        <pre id="output" aria-label="Streamed response" aria-live="polite" hidden></pre>
+        <p id="error" role="alert" hidden></p>
+        <dl class="metadata"><div><dt>Provider</dt><dd id="provider">—</dd></div><div><dt>Total tokens</dt><dd id="tokens">—</dd></div><div><dt>Elapsed</dt><dd id="elapsed">—</dd></div></dl>
+        <div class="request-id"><span>Request ID</span><code id="request-id">—</code></div>
+      </section>
+    </div>
+    <footer><span>Fixture output is intentionally deterministic: <code>hello hello hello</code>.</span><span>Bearer-authenticated API · Translated SSE · Bounded streaming</span></footer>
+  </main>
+</body>
+</html>

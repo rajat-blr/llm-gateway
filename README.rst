@@ -27,6 +27,13 @@ Run the demo
 Requires Docker Desktop or Docker Engine with Compose::
 
     make demo
+
+Open http://localhost:8080 in your browser and select Run stream. The page
+includes the public local demo key and can exercise either adapter. It
+does not save keys. If you set a custom GATEWAY_API_KEY, enter it in the form.
+
+Or call the API directly::
+
     curl -N http://localhost:8080/v1/chat/completions \
       -H 'Authorization: Bearer demo-local-key' \
       -H 'Content-Type: application/json' \

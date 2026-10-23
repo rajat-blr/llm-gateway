@@ -10,3 +10,7 @@ tmp/
 coverage.out
 *.bundle
 .DS_Store
+
+# Local requirements and notes
+*.md
+/LLM Gateway in Go - Revised PRD.pdf

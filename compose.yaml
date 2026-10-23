@@ -1,5 +1,26 @@
 services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--save", "", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6381:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
   mock:
+    build: .
+    entrypoint: ["mock"]
+    command: ["-listen", ":9090", "-fail-every", "${MOCK_FAIL_EVERY:-0}", "-drop-after", "${MOCK_DROP_AFTER:-0}", "-chunk-delay", "${MOCK_CHUNK_DELAY:-30ms}"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/healthz"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+  mock-secondary:
     build: .
     entrypoint: ["mock"]
     command: ["-listen", ":9090"]
@@ -16,6 +37,10 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
+      redis:
+        condition: service_healthy
+      mock-secondary:
+        condition: service_healthy
       mock:
         condition: service_healthy
     healthcheck:
@@ -24,3 +49,6 @@ services:
       timeout: 1s
       retries: 10
     stop_grace_period: 12s
+
+volumes:
+  redis-data:

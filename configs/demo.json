@@ -11,11 +11,71 @@
   "max_concurrent": 64,
   "max_streams": 32,
   "providers": {
-    "mock-openai": {"kind": "openai", "base_url": "http://localhost:9090/v1", "key_env": "MOCK_API_KEY"},
-    "mock-anthropic": {"kind": "anthropic", "base_url": "http://localhost:9090/v1", "key_env": "MOCK_API_KEY"}
+    "mock-openai": {
+      "kind": "openai",
+      "base_url": "http://localhost:9090/v1",
+      "key_env": "MOCK_API_KEY"
+    },
+    "mock-anthropic": {
+      "kind": "anthropic",
+      "base_url": "http://localhost:9090/v1",
+      "key_env": "MOCK_API_KEY"
+    },
+    "backup-anthropic": {
+      "kind": "anthropic",
+      "base_url": "http://localhost:9091/v1",
+      "key_env": "MOCK_API_KEY"
+    }
   },
   "routes": {
-    "default-chat": {"provider": "mock-openai", "model": "mock-text", "max_output_tokens": 1024},
-    "anthropic-chat": {"provider": "mock-anthropic", "model": "mock-text", "max_output_tokens": 1024}
-  }
+    "default-chat": {
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-openai",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ]
+    },
+    "anthropic-chat": {
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ]
+    }
+  },
+  "redis": {
+    "address": "127.0.0.1:6381",
+    "db": 0,
+    "prefix": "llmgw",
+    "timeout": "200ms",
+    "reservation_ttl": "15m"
+  },
+  "token_limit": {
+    "capacity": 100000,
+    "refill_per_second": 1000
+  },
+  "breaker": {
+    "failures": 5,
+    "window": "30s",
+    "open_for": "10s",
+    "recovery_successes": 1
+  },
+  "backoff_base": "25ms",
+  "backoff_max": "250ms"
 }

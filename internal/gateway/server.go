@@ -12,6 +12,9 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"strconv"
+
+	"github.com/rajat-blr/llm-gateway/internal/limits"
 	"net/http"
 	"os"
 	"sort"
@@ -21,17 +24,37 @@ import (
 )
 
 type Server struct {
-	cfg       Config
-	key       [32]byte
-	secrets   map[string]string
-	transport *http.Transport
-	client    *http.Client
-	slots     chan struct{}
-	streams   chan struct{}
-	ready     atomic.Bool
+	cfg              Config
+	key              [32]byte
+	secrets          map[string]string
+	transport        *http.Transport
+	client           *http.Client
+	slots            chan struct{}
+	streams          chan struct{}
+	ready            atomic.Bool
+	limiter          limits.Store
+	breakers         map[string]*breaker
+	accountingErrors atomic.Uint64
 }
 
 func New(c Config) (*Server, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	if c.Redis.PasswordEnv != "" && os.Getenv(c.Redis.PasswordEnv) == "" {
+		return nil, errors.New("Redis password environment variable is required")
+	}
+	limiter, err := limits.New(limits.Options{Address: c.Redis.Address, Password: os.Getenv(c.Redis.PasswordEnv), DB: c.Redis.DB, Prefix: c.Redis.Prefix, Capacity: c.Limit.Capacity, RefillPerSecond: c.Limit.RefillPerSecond, Timeout: time.Duration(c.Redis.Timeout), ReservationTTL: time.Duration(c.Redis.ReservationTTL)})
+	if err != nil {
+		return nil, err
+	}
+	server, err := newServer(c, limiter)
+	if err != nil {
+		limiter.Close()
+	}
+	return server, err
+}
+func newServer(c Config, limiter limits.Store) (*Server, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -39,6 +62,17 @@ func New(c Config) (*Server, error) {
 	if key == "" {
 		return nil, errors.New("gateway key environment variable is required")
 	}
+	providers := make(map[string]ProviderConfig, len(c.Providers))
+	for name, p := range c.Providers {
+		providers[name] = p
+	}
+	c.Providers = providers
+	routes := make(map[string]Route, len(c.Routes))
+	for name, r := range c.Routes {
+		r.Targets = append([]Target(nil), r.Targets...)
+		routes[name] = r
+	}
+	c.Routes = routes
 	s := &Server{cfg: c, key: sha256.Sum256([]byte(key)), secrets: map[string]string{}, slots: make(chan struct{}, c.MaxConcurrent), streams: make(chan struct{}, c.MaxStreams)}
 	for name, p := range c.Providers {
 		secret := os.Getenv(p.KeyEnv)
@@ -47,19 +81,34 @@ func New(c Config) (*Server, error) {
 		}
 		s.secrets[name] = secret
 	}
+	s.limiter = limiter
+	s.breakers = map[string]*breaker{}
+	for _, route := range c.Routes {
+		seen := map[string]bool{}
+		for _, target := range route.Targets {
+			identity := breakerIdentity(c.Providers[target.Provider], s.secrets[target.Provider], target.Model)
+			if seen[identity] {
+				return nil, errors.New("route repeats the same upstream credential and model")
+			}
+			seen[identity] = true
+			if s.breakers[identity] == nil {
+				s.breakers[identity] = newBreaker(c.Breaker, time.Now)
+			}
+		}
+	}
 	s.transport = newTransport(c)
 	s.client = &http.Client{Transport: s.transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	s.ready.Store(true)
 	return s, nil
 }
 func (s *Server) StopAdmission() { s.ready.Store(false) }
-func (s *Server) Close()         { s.transport.CloseIdleConnections() }
+func (s *Server) Close()         { s.transport.CloseIdleConnections(); _ = s.limiter.Close() }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if serveDemo(w, r) {
 		return
 	}
 	if r.Method == http.MethodGet && (r.URL.Path == "/healthz" || r.URL.Path == "/readyz") {
-		if r.URL.Path == "/readyz" && !s.ready.Load() {
+		if r.URL.Path == "/readyz" && (!s.ready.Load() || s.limiter.Ping(r.Context()) != nil) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -134,85 +183,143 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	alias = request.Model
-	p := s.cfg.Providers[route.Provider]
-	if request.Validate(route, p) != nil {
-		s.writeError(w, 400, "invalid_request")
-		return
+	for _, target := range route.Targets {
+		if request.Validate(route, s.cfg.Providers[target.Provider]) != nil {
+			s.writeError(w, 400, "invalid_request")
+			return
+		}
 	}
-	fail := func() { status, code := upstreamError(r.Context()); outcome = code; s.writeError(w, status, code) }
+	fail := func(status int, code string) { outcome = code; s.writeError(w, status, code) }
+	contextFailure := func() { status, code := upstreamError(r.Context()); fail(status, code) }
 	if err := acquire(r.Context(), s.slots); err != nil {
-		fail()
+		contextFailure()
 		return
 	}
 	defer func() { <-s.slots }()
 	if request.Stream {
 		if err := acquire(r.Context(), s.streams); err != nil {
-			fail()
+			contextFailure()
 			return
 		}
 		defer func() { <-s.streams }()
 	}
-	upstream, err := upstreamRequest(r.Context(), request, route, p, s.secrets[route.Provider])
-	if err != nil {
-		fail()
-		return
-	}
-	provider = route.Provider
-	response, err := s.client.Do(upstream)
-	if err != nil {
-		fail()
-		return
-	}
-	defer response.Body.Close()
-	if response.StatusCode != 200 {
-		fail()
-		return
-	}
-	media, _, err = mime.ParseMediaType(response.Header.Get("Content-Type"))
-	if err != nil {
-		fail()
-		return
-	}
-	if request.Stream {
-		if media != "text/event-stream" {
-			fail()
+	attempted := 0
+	lastFailure := false
+	for position, target := range route.Targets {
+		if r.Context().Err() != nil {
+			contextFailure()
 			return
 		}
-		stream := newStream(response.Body, p.Kind, s.cfg.MaxEventBytes, s.cfg.MaxOutputBytes)
-		defer stream.Close()
-		first, err := stream.Next(r.Context())
+		p := s.cfg.Providers[target.Provider]
+		breaker := s.breakers[breakerIdentity(p, s.secrets[target.Provider], target.Model)]
+		ticket, ok := breaker.acquire()
+		if !ok {
+			continue
+		}
+		amount := estimateInput(request, p.Kind) + int64(*request.MaxTokens)
+		reservation, err := s.limiter.Reserve(r.Context(), hex.EncodeToString(s.key[:]), id+"-"+strconv.Itoa(position), amount)
 		if err != nil {
-			fail()
+			breaker.complete(ticket, breakerNeutral)
+			if r.Context().Err() != nil {
+				contextFailure()
+				return
+			}
+			var denied *limits.Denied
+			if errors.As(err, &denied) {
+				w.Header().Set("X-RateLimit-Remaining-Tokens", strconv.FormatInt(max(int64(0), denied.Remaining), 10))
+				if denied.RetryAfter > 0 {
+					w.Header().Set("Retry-After", strconv.FormatInt(int64((denied.RetryAfter+time.Second-1)/time.Second), 10))
+				}
+				fail(429, "rate_limit_exceeded")
+			} else {
+				fail(503, "dependency_unavailable")
+			}
 			return
+		}
+		if r.Context().Err() != nil {
+			breaker.complete(ticket, breakerNeutral)
+			s.release(reservation)
+			contextFailure()
+			return
+		}
+		attempted++
+		provider = target.Provider
+		attemptStart := time.Now()
+		attemptCtx, cancelAttempt := context.WithTimeout(r.Context(), time.Duration(target.AttemptTimeout))
+		result := s.execute(attemptCtx, request, target, p)
+		if result.err != nil {
+			cancelAttempt()
+			classification := breakerNeutral
+			if result.retry && r.Context().Err() == nil {
+				classification = breakerFailure
+			}
+			breaker.complete(ticket, classification)
+			slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", "failed", "transient", result.retry)
+			accountingErr := s.settle(id, provider, attempted, reservation, nil)
+			if r.Context().Err() != nil {
+				contextFailure()
+				return
+			}
+			if accountingErr != nil {
+				fail(503, "dependency_unavailable")
+				return
+			}
+			lastFailure = true
+			if !result.retry || position == len(route.Targets)-1 {
+				contextFailure()
+				return
+			}
+			if !s.waitRetry(r.Context(), result.retryAfter) {
+				contextFailure()
+				return
+			}
+			continue
 		}
 		w.Header().Set("X-Gateway-Provider", provider)
 		w.Header().Set("X-Cache", "BYPASS")
-		outcome = s.serveStream(w, r, stream, first, id, alias, request.StreamOptions != nil && request.StreamOptions.IncludeUsage)
+		w.Header().Set("X-RateLimit-Remaining-Tokens", strconv.FormatInt(max(int64(0), reservation.Remaining), 10))
+		if result.stream != nil {
+			// From this point the response belongs to this provider, including errors.
+			outcome = s.serveStream(w, r, result.stream, result.first, id, alias, request.StreamOptions != nil && request.StreamOptions.IncludeUsage)
+			result.stream.Close()
+			cancelAttempt()
+			classification := breakerNeutral
+			var usage *Usage
+			if result.stream.done {
+				usage = result.stream.usage
+				classification = breakerSuccess
+			} else if r.Context().Err() == nil && transient(result.stream.lastErr) {
+				classification = breakerFailure
+			}
+			breaker.complete(ticket, classification)
+			s.settle(id, provider, attempted, reservation, usage)
+			slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", outcome)
+			return
+		}
+		cancelAttempt()
+		breaker.complete(ticket, breakerSuccess)
+		if s.settle(id, provider, attempted, reservation, result.usage) != nil {
+			w.Header().Del("X-Gateway-Provider")
+			w.Header().Del("X-Cache")
+			fail(503, "dependency_unavailable")
+			return
+		}
+		slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", "success")
+		c := Completion{ID: id, Object: "chat.completion", Created: start.Unix(), Model: alias, Choices: []Choice{{Index: 0, Message: &result.message, FinishReason: &result.reason}}, Usage: result.usage}
+		_ = http.NewResponseController(w).SetWriteDeadline(writeDeadline(r.Context(), time.Duration(s.cfg.WriteTimeout)))
+		if writeJSON(w, 200, c) != nil {
+			outcome = "downstream_failure"
+		} else {
+			outcome = "success"
+		}
 		return
 	}
-	if media != "application/json" {
-		fail()
-		return
-	}
-	b, err = readBounded(response.Body, s.cfg.MaxOutputBytes)
-	if err != nil {
-		fail()
-		return
-	}
-	message, reason, usage, err := decodeCompletion(b, p.Kind)
-	if err != nil {
-		fail()
-		return
-	}
-	w.Header().Set("X-Gateway-Provider", provider)
-	w.Header().Set("X-Cache", "BYPASS")
-	c := Completion{ID: id, Object: "chat.completion", Created: start.Unix(), Model: alias, Choices: []Choice{{Index: 0, Message: &message, FinishReason: &reason}}, Usage: usage}
-	_ = http.NewResponseController(w).SetWriteDeadline(writeDeadline(r.Context(), time.Duration(s.cfg.WriteTimeout)))
-	if writeJSON(w, 200, c) != nil {
-		outcome = "downstream_failure"
+	if lastFailure {
+		contextFailure()
 	} else {
-		outcome = "success"
+		fail(503, "all_providers_unavailable")
 	}
+
 }
 func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Stream, event Event, id, alias string, includeUsage bool) string {
 	rc := http.NewResponseController(w)

@@ -44,7 +44,7 @@ func newTransport(c Config) *http.Transport {
 		ForceAttemptHTTP2: false,
 	}
 }
-func upstreamRequest(ctx context.Context, r Request, route Route, p ProviderConfig, key string) (*http.Request, error) {
+func upstreamRequest(ctx context.Context, r Request, route Target, p ProviderConfig, key string) (*http.Request, error) {
 	var body any
 	endpoint := "/chat/completions"
 	if p.Kind == "openai" {
@@ -144,7 +144,7 @@ func decodeCompletion(b []byte, kind string) (Message, string, *Usage, error) {
 				} `json:"message"`
 				Finish string `json:"finish_reason"`
 			} `json:"choices"`
-			Usage *Usage `json:"usage"`
+			Usage *reportedUsage `json:"usage"`
 		}
 		if json.Unmarshal(b, &v) != nil || len(v.Error) > 0 || len(v.Choices) != 1 {
 			return m, "", nil, errProtocol
@@ -154,10 +154,11 @@ func decodeCompletion(b []byte, kind string) (Message, string, *Usage, error) {
 			return m, "", nil, errProtocol
 		}
 		reason, err := finishReason(kind, c.Finish)
-		if v.Usage != nil && !v.Usage.valid() {
+		usage, usageErr := v.Usage.normalized()
+		if usageErr != nil {
 			return m, "", nil, errProtocol
 		}
-		return Message{"assistant", *c.Message.Content}, reason, v.Usage, err
+		return Message{"assistant", *c.Message.Content}, reason, usage, err
 	}
 	var v struct {
 		Type    string `json:"type"`
@@ -166,11 +167,8 @@ func decodeCompletion(b []byte, kind string) (Message, string, *Usage, error) {
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
-		Stop  string `json:"stop_reason"`
-		Usage *struct {
-			Input  int `json:"input_tokens"`
-			Output int `json:"output_tokens"`
-		} `json:"usage"`
+		Stop  string          `json:"stop_reason"`
+		Usage *anthropicUsage `json:"usage"`
 	}
 	if json.Unmarshal(b, &v) != nil || v.Type != "message" || v.Role != "assistant" || len(v.Content) == 0 {
 		return m, "", nil, errProtocol
@@ -183,13 +181,11 @@ func decodeCompletion(b []byte, kind string) (Message, string, *Usage, error) {
 		text.WriteString(block.Text)
 	}
 	reason, err := finishReason(kind, v.Stop)
-	var usage *Usage
-	if v.Usage != nil {
-		usage = &Usage{v.Usage.Input, v.Usage.Output, v.Usage.Input + v.Usage.Output}
-		if !usage.valid() {
-			return m, "", nil, errProtocol
-		}
+	usage, usageErr := v.Usage.normalized()
+	if usageErr != nil {
+		return m, "", nil, errProtocol
 	}
+
 	return Message{"assistant", text.String()}, reason, usage, err
 }
 func present(b json.RawMessage) bool { return len(b) > 0 && string(b) != "null" }

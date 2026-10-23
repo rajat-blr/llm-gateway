@@ -22,6 +22,7 @@ type Stream struct {
 	blockIndex int
 	done       bool
 	usage      *Usage
+	lastErr    error
 }
 type Event struct {
 	Delta  *Delta
@@ -75,7 +76,12 @@ func (s *Stream) readEvent() (string, string, error) {
 	}
 	return "", "", io.ErrUnexpectedEOF
 }
-func (s *Stream) Next(ctx context.Context) (Event, error) {
+func (s *Stream) Next(ctx context.Context) (event Event, nextErr error) {
+	defer func() {
+		if nextErr != nil {
+			s.lastErr = nextErr
+		}
+	}()
 	if s.done {
 		return Event{}, io.EOF
 	}
@@ -123,16 +129,17 @@ func (s *Stream) openAI(data string) (Event, bool, error) {
 			} `json:"delta"`
 			Finish *string `json:"finish_reason"`
 		} `json:"choices"`
-		Usage *Usage `json:"usage"`
+		Usage *reportedUsage `json:"usage"`
 	}
 	if json.Unmarshal([]byte(data), &v) != nil || present(v.Error) {
 		return Event{}, false, errProtocol
 	}
 	if v.Usage != nil {
-		if !v.Usage.valid() {
+		usage, usageErr := v.Usage.normalized()
+		if usageErr != nil {
 			return Event{}, false, errProtocol
 		}
-		s.usage = v.Usage
+		s.usage = usage
 	}
 	if len(v.Choices) == 0 {
 		if v.Usage == nil || !s.finish {
@@ -166,11 +173,8 @@ func (s *Stream) anthropic(name, data string) (Event, bool, error) {
 		Type    string `json:"type"`
 		Index   *int   `json:"index"`
 		Message struct {
-			Role  string `json:"role"`
-			Usage struct {
-				Input  int `json:"input_tokens"`
-				Output int `json:"output_tokens"`
-			} `json:"usage"`
+			Role  string          `json:"role"`
+			Usage *anthropicUsage `json:"usage"`
 		} `json:"message"`
 		Block struct {
 			Type string `json:"type"`
@@ -182,7 +186,7 @@ func (s *Stream) anthropic(name, data string) (Event, bool, error) {
 			Stop *string `json:"stop_reason"`
 		} `json:"delta"`
 		Usage *struct {
-			Output int `json:"output_tokens"`
+			Output *int `json:"output_tokens"`
 		} `json:"usage"`
 	}
 	if json.Unmarshal([]byte(data), &v) != nil || name != v.Type {
@@ -192,11 +196,15 @@ func (s *Stream) anthropic(name, data string) (Event, bool, error) {
 	case "ping":
 		return Event{}, false, nil
 	case "message_start":
-		if s.started || v.Message.Role != "assistant" || v.Message.Usage.Input < 0 || v.Message.Usage.Output < 0 {
+		if s.started || v.Message.Role != "assistant" {
 			return Event{}, false, errProtocol
 		}
 		s.started = true
-		s.usage = &Usage{v.Message.Usage.Input, v.Message.Usage.Output, v.Message.Usage.Input + v.Message.Usage.Output}
+		var usageErr error
+		s.usage, usageErr = v.Message.Usage.normalized()
+		if usageErr != nil {
+			return Event{}, false, usageErr
+		}
 		return Event{Delta: &Delta{Role: "assistant"}}, true, nil
 	case "content_block_start":
 		if !s.started || s.finish || s.blockOpen || v.Index == nil || *v.Index != s.blockIndex+1 || v.Block.Type != "text" {
@@ -217,7 +225,7 @@ func (s *Stream) anthropic(name, data string) (Event, bool, error) {
 		s.blockOpen = false
 		return Event{}, false, nil
 	case "message_delta":
-		if !s.started || s.blockOpen || s.finish || v.Delta.Stop == nil || v.Usage == nil || v.Usage.Output < 0 {
+		if !s.started || s.blockOpen || s.finish || v.Delta.Stop == nil {
 			return Event{}, false, errProtocol
 		}
 		reason, err := finishReason("anthropic", *v.Delta.Stop)
@@ -225,10 +233,19 @@ func (s *Stream) anthropic(name, data string) (Event, bool, error) {
 			return Event{}, false, err
 		}
 		s.finish = true
-		s.usage.CompletionTokens = v.Usage.Output
-		s.usage.TotalTokens = s.usage.PromptTokens + v.Usage.Output
-		if !s.usage.valid() {
-			return Event{}, false, errProtocol
+		if v.Usage == nil || v.Usage.Output == nil {
+			s.usage = nil
+		} else {
+			if *v.Usage.Output < 0 || *v.Usage.Output > 1_000_000_000 {
+				return Event{}, false, errProtocol
+			}
+			if s.usage != nil {
+				s.usage.CompletionTokens = *v.Usage.Output
+				s.usage.TotalTokens = s.usage.PromptTokens + *v.Usage.Output
+				if !s.usage.valid() {
+					return Event{}, false, errProtocol
+				}
+			}
 		}
 		return Event{Delta: &Delta{}, Finish: &reason}, true, nil
 	case "message_stop":

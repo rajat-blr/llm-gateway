@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+import uuid
 import urllib.request
 
 from openai import APIError, APIStatusError, BadRequestError, OpenAI
@@ -50,13 +51,28 @@ def stop(process):
 
 
 @contextlib.contextmanager
-def running(mock_args=(), overrides=None):
-    mock_port, gateway_port = free_port(), free_port()
+def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
+    mock_port, gateway_port, secondary_port = free_port(), free_port(), free_port()
     config = json.loads((ROOT / "configs/demo.json").read_text())
     config["listen"] = f"127.0.0.1:{gateway_port}"
-    for provider in config["providers"].values():
-        provider["base_url"] = f"http://127.0.0.1:{mock_port}/v1"
+    for name, provider in config["providers"].items():
+        port = secondary_port if name.startswith("backup") else mock_port
+        provider["base_url"] = f"http://127.0.0.1:{port}/v1"
+    if not fallback:
+        for route in config["routes"].values():
+            route["targets"] = route["targets"][:1]
+    config["redis"]["address"] = os.environ.get("REDIS_TEST_ADDR", config["redis"]["address"])
+    config["redis"]["prefix"] = "sdk:" + uuid.uuid4().hex
     config.update(overrides or {})
+    # Deadline scenarios intentionally shorten the complete budget.
+    def seconds(value):
+        return float(value[:-2])/1000 if value.endswith("ms") else float(value[:-1])
+    for route in config["routes"].values():
+        for target in route["targets"]:
+            if seconds(target["attempt_timeout"]) > seconds(config["request_timeout"]):
+                target["attempt_timeout"] = config["request_timeout"]
+    if seconds(config["backoff_max"]) > seconds(config["request_timeout"]):
+        config["backoff_max"] = config["request_timeout"]
     env = dict(os.environ, GATEWAY_API_KEY="sdk-test-key", MOCK_API_KEY="fixture")
     with tempfile.TemporaryDirectory(prefix="gateway-sdk-") as directory:
         path = Path(directory) / "config.json"
@@ -66,17 +82,22 @@ def running(mock_args=(), overrides=None):
                 [str(ROOT / "bin/mock"), "-listen", f"127.0.0.1:{mock_port}", *mock_args],
                 stdout=logs, stderr=logs, env=env,
             )
+            secondary = subprocess.Popen(
+                [str(ROOT / "bin/mock"), "-listen", f"127.0.0.1:{secondary_port}"],
+                stdout=logs, stderr=logs, env=env,
+            )
             gateway = None
             client = None
             try:
                 wait_until(lambda: get_json(f"http://127.0.0.1:{mock_port}/stats"))
+                wait_until(lambda: get_json(f"http://127.0.0.1:{secondary_port}/stats"))
                 gateway = subprocess.Popen(
                     [str(ROOT / "bin/gateway"), "-config", str(path)],
                     stdout=logs, stderr=logs, env=env,
                 )
-                wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/readyz"))
+                wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))
                 client = OpenAI(api_key="sdk-test-key", base_url=f"http://127.0.0.1:{gateway_port}/v1", max_retries=0, timeout=5)
-                yield client, gateway, f"http://127.0.0.1:{mock_port}/stats"
+                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats"}
             except Exception:
                 logs.flush()
                 logs.seek(0)
@@ -88,6 +109,7 @@ def running(mock_args=(), overrides=None):
                 if gateway is not None:
                     stop(gateway)
                 stop(mock)
+                stop(secondary)
 
 
 MESSAGES = [{"role": "user", "content": "Hello"}]
@@ -109,14 +131,14 @@ class SDKAcceptance(unittest.TestCase):
                 self.assertEqual("".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices), "hello hello hello ")
                 self.assertEqual(chunks[-1].usage.total_tokens, 8)
                 self.assertEqual(chunks[-1].choices, [])
-            self.assertEqual(get_json(stats)["calls"], 4)
+            self.assertEqual(get_json(stats["primary"])["calls"], 4)
 
     def test_unsupported_field_is_explicit(self):
         with running() as (client, _, stats):
             with self.assertRaises(BadRequestError) as error:
                 client.chat.completions.create(model="default-chat", messages=MESSAGES, extra_body={"tools": []})
             self.assertEqual(error.exception.code, "invalid_request")
-            self.assertEqual(get_json(stats)["calls"], 0)
+            self.assertEqual(get_json(stats["primary"])["calls"], 0)
 
     def test_midstream_error_surfaces_in_sdk(self):
         for alias in ("default-chat", "anthropic-chat"):
@@ -128,7 +150,7 @@ class SDKAcceptance(unittest.TestCase):
                             chunks.append(chunk)
                 self.assertIn("upstream provider failed", str(error.exception).lower())
                 self.assertTrue(chunks)
-                self.assertEqual(get_json(stats)["calls"], 1)
+                self.assertEqual(get_json(stats["primary"])["calls"], 1)
 
     def test_failure_before_commit(self):
         with running(("-fail-every", "1")) as (client, _, _):
@@ -141,7 +163,7 @@ class SDKAcceptance(unittest.TestCase):
         with running(("-chunks", "100", "-chunk-delay", "200ms")) as (client, _, stats):
             with client.chat.completions.create(model="default-chat", messages=MESSAGES, stream=True) as stream:
                 next(stream)
-            wait_until(lambda: get_json(stats)["canceled"] == 1, timeout=1)
+            wait_until(lambda: get_json(stats["primary"])["canceled"] == 1, timeout=1)
 
     def test_request_deadline(self):
         overrides = {"request_timeout": "200ms", "idle_timeout": "200ms", "write_timeout": "100ms"}
@@ -151,6 +173,38 @@ class SDKAcceptance(unittest.TestCase):
             # Overall and per-read deadlines coincide; either bounded failure
             # can win depending on scheduler timing.
             self.assertIn(error.exception.status_code, (502, 504))
+
+    def test_transient_primary_falls_back(self):
+        with running(("-fail-every", "1"), fallback=True) as (client, _, stats):
+            result = client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            self.assertEqual(result.choices[0].message.content, "hello hello hello ")
+            self.assertEqual(get_json(stats["primary"])["calls"], 1)
+            self.assertEqual(get_json(stats["secondary"])["calls"], 1)
+
+    def test_committed_stream_never_falls_back(self):
+        with running(("-drop-after", "1"), fallback=True) as (client, _, stats):
+            with self.assertRaises(APIError):
+                with client.chat.completions.create(model="default-chat", messages=MESSAGES, stream=True) as stream:
+                    list(stream)
+            self.assertEqual(get_json(stats["primary"])["calls"], 1)
+            self.assertEqual(get_json(stats["secondary"])["calls"], 0)
+
+    def test_exhausted_bucket_is_explicit(self):
+        with running(overrides={"token_limit": {"capacity": 1, "refill_per_second": 1}}) as (client, _, stats):
+            with self.assertRaises(APIStatusError) as error:
+                client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            self.assertEqual(error.exception.status_code, 429)
+            self.assertEqual(error.exception.code, "rate_limit_exceeded")
+            self.assertEqual(get_json(stats["primary"])["calls"], 0)
+
+    def test_redis_unavailable_fails_closed(self):
+        config = {"address": "127.0.0.1:1", "db": 0, "prefix": "outage", "timeout": "50ms", "reservation_ttl": "15m"}
+        with running(overrides={"redis": config}, require_ready=False) as (client, _, stats):
+            with self.assertRaises(APIStatusError) as error:
+                client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            self.assertEqual(error.exception.status_code, 503)
+            self.assertEqual(error.exception.code, "dependency_unavailable")
+            self.assertEqual(get_json(stats["primary"])["calls"], 0)
 
     def test_shutdown_drains_stream(self):
         with running(("-chunk-delay", "50ms")) as (client, gateway, _):
@@ -169,7 +223,7 @@ class SDKAcceptance(unittest.TestCase):
                 gateway.terminate()
                 gateway.wait(timeout=2)
             self.assertNotEqual(gateway.returncode, 0)
-            wait_until(lambda: get_json(stats)["canceled"] == 1, timeout=1)
+            wait_until(lambda: get_json(stats["primary"])["canceled"] == 1, timeout=1)
 
 
 if __name__ == "__main__":

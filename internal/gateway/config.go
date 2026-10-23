@@ -3,8 +3,10 @@ package gateway
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -35,6 +37,11 @@ type Config struct {
 	MaxEventBytes   int                       `json:"max_event_bytes"`
 	MaxConcurrent   int                       `json:"max_concurrent"`
 	MaxStreams      int                       `json:"max_streams"`
+	Redis           RedisConfig               `json:"redis"`
+	Limit           LimitConfig               `json:"token_limit"`
+	Breaker         BreakerConfig             `json:"breaker"`
+	BackoffBase     Duration                  `json:"backoff_base"`
+	BackoffMax      Duration                  `json:"backoff_max"`
 	Providers       map[string]ProviderConfig `json:"providers"`
 	Routes          map[string]Route          `json:"routes"`
 }
@@ -43,10 +50,26 @@ type ProviderConfig struct {
 	BaseURL string `json:"base_url"`
 	KeyEnv  string `json:"key_env"`
 }
+type RedisConfig struct {
+	Address        string   `json:"address"`
+	PasswordEnv    string   `json:"password_env,omitempty"`
+	DB             int      `json:"db"`
+	Prefix         string   `json:"prefix"`
+	Timeout        Duration `json:"timeout"`
+	ReservationTTL Duration `json:"reservation_ttl"`
+}
+type LimitConfig struct {
+	Capacity        int64 `json:"capacity"`
+	RefillPerSecond int64 `json:"refill_per_second"`
+}
+type Target struct {
+	Provider       string   `json:"provider"`
+	Model          string   `json:"model"`
+	AttemptTimeout Duration `json:"attempt_timeout"`
+}
 type Route struct {
-	Provider        string `json:"provider"`
-	Model           string `json:"model"`
-	MaxOutputTokens int    `json:"max_output_tokens"`
+	Targets         []Target `json:"targets"`
+	MaxOutputTokens int      `json:"max_output_tokens"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -79,9 +102,33 @@ func (c Config) Validate() error {
 			return fmt.Errorf("invalid provider %q", name)
 		}
 	}
+	if _, _, err := net.SplitHostPort(c.Redis.Address); err != nil {
+		return errors.New("Redis address must be host:port")
+	}
+	if c.Redis.Address == "" || c.Redis.Prefix == "" || strings.ContainsAny(c.Redis.Prefix, "{}") || c.Redis.DB < 0 || c.Redis.DB > 15 || c.Redis.Timeout <= 0 || c.Redis.Timeout > Duration(time.Second) || c.Redis.ReservationTTL < c.RequestTimeout+c.ShutdownTimeout+2*c.Redis.Timeout || c.Redis.ReservationTTL > Duration(24*time.Hour) {
+		return errors.New("invalid Redis configuration")
+	}
+	if c.Limit.Capacity < 1 || c.Limit.Capacity > 1_000_000_000 || c.Limit.RefillPerSecond < 1 || c.Limit.RefillPerSecond > 1_000_000 {
+		return errors.New("invalid token limit")
+	}
+	if c.Breaker.Failures < 1 || c.Breaker.Failures > 1000 || c.Breaker.Window <= 0 || c.Breaker.Window > Duration(time.Hour) || c.Breaker.OpenFor <= 0 || c.Breaker.OpenFor > Duration(time.Hour) || c.Breaker.RecoverySuccesses < 1 || c.Breaker.RecoverySuccesses > 100 {
+		return errors.New("invalid breaker policy")
+	}
+	if c.BackoffBase <= 0 || c.BackoffMax < c.BackoffBase || c.BackoffMax > c.RequestTimeout {
+		return errors.New("invalid retry backoff")
+	}
 	for name, r := range c.Routes {
-		if _, ok := c.Providers[r.Provider]; !ok || name == "" || r.Model == "" || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 {
+		if name == "" || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 || len(r.Targets) < 1 || len(r.Targets) > 2 {
 			return fmt.Errorf("invalid route %q", name)
+		}
+		seen := map[string]bool{}
+		for _, target := range r.Targets {
+			p, ok := c.Providers[target.Provider]
+			identity := p.Kind + "\x00" + p.BaseURL + "\x00" + p.KeyEnv + "\x00" + target.Model
+			if !ok || target.Model == "" || target.AttemptTimeout <= 0 || target.AttemptTimeout > c.RequestTimeout || seen[identity] {
+				return fmt.Errorf("invalid or duplicate target in route %q", name)
+			}
+			seen[identity] = true
 		}
 	}
 	return nil

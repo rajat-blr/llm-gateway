@@ -5,6 +5,18 @@ permissions:
 jobs:
   contract:
     runs-on: ubuntu-latest
+    env:
+      REDIS_TEST_ADDR: 127.0.0.1:6379
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 1s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,5 +32,11 @@ jobs:
       - run: make integration
       - run: docker compose up --build --wait
       - run: python examples/chat.py
+      - run: python scripts/compose_acceptance.py normal
+      - run: MOCK_FAIL_EVERY=1 docker compose up -d --no-deps --force-recreate --wait mock gateway
+      - run: python scripts/compose_acceptance.py fallback
+      - run: MOCK_DROP_AFTER=1 docker compose up -d --no-deps --force-recreate --wait mock gateway
+      - run: python scripts/compose_acceptance.py drop
+      - run: python scripts/redis_outage_acceptance.py
       - if: always()
         run: docker compose logs && docker compose down

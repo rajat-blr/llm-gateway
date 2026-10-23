@@ -20,18 +20,62 @@
       "kind": "anthropic",
       "base_url": "http://mock:9090/v1",
       "key_env": "MOCK_API_KEY"
+    },
+    "backup-anthropic": {
+      "kind": "anthropic",
+      "base_url": "http://mock-secondary:9090/v1",
+      "key_env": "MOCK_API_KEY"
     }
   },
   "routes": {
     "default-chat": {
-      "provider": "mock-openai",
-      "model": "mock-text",
-      "max_output_tokens": 1024
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-openai",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ]
     },
     "anthropic-chat": {
-      "provider": "mock-anthropic",
-      "model": "mock-text",
-      "max_output_tokens": 1024
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ]
     }
-  }
+  },
+  "redis": {
+    "address": "redis:6379",
+    "db": 0,
+    "prefix": "llmgw",
+    "timeout": "200ms",
+    "reservation_ttl": "15m"
+  },
+  "token_limit": {
+    "capacity": 100000,
+    "refill_per_second": 1000
+  },
+  "breaker": {
+    "failures": 5,
+    "window": "30s",
+    "open_for": "10s",
+    "recovery_successes": 1
+  },
+  "backoff_base": "25ms",
+  "backoff_max": "250ms"
 }

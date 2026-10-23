@@ -70,7 +70,9 @@ func TestConfigValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, mutate := range []func(*Config){
-		func(c *Config) { c.MaxStreams = c.MaxConcurrent + 1 }, func(c *Config) { c.IdleTimeout = c.RequestTimeout + 1 }, func(c *Config) { c.MaxOutputBytes = 0 }, func(c *Config) { c.Routes["bad"] = Route{Provider: "missing", Model: "x", MaxOutputTokens: 1} },
+		func(c *Config) { c.MaxStreams = c.MaxConcurrent + 1 }, func(c *Config) { c.IdleTimeout = c.RequestTimeout + 1 }, func(c *Config) { c.MaxOutputBytes = 0 }, func(c *Config) {
+			c.Routes["bad"] = Route{Targets: []Target{{Provider: "missing", Model: "x", AttemptTimeout: c.RequestTimeout}}, MaxOutputTokens: 1}
+		},
 	} {
 		copy := cfg
 		copy.Routes = map[string]Route{}

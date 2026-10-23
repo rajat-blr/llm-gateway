@@ -1,3 +1,6 @@
+REDIS_TEST_ADDR ?= 127.0.0.1:6381
+export REDIS_TEST_ADDR
+
 .PHONY: build test test-fuzz check integration demo down
 build:
 	mkdir -p bin

@@ -99,3 +99,15 @@ func FuzzStrictRequest(f *testing.F) {
 		}
 	})
 }
+
+func TestIncompleteUsageRemainsUnknown(t *testing.T) {
+	for _, fixture := range []struct{ kind, payload string }{
+		{"openai", `{"choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5}}`},
+		{"anthropic", `{"type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5}}`},
+	} {
+		_, _, usage, err := decodeCompletion([]byte(fixture.payload), fixture.kind)
+		if err != nil || usage != nil {
+			t.Fatalf("partial %s usage became known: %+v: %v", fixture.kind, usage, err)
+		}
+	}
+}

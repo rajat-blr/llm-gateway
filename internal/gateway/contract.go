@@ -51,7 +51,7 @@ type Usage struct {
 }
 
 func (u Usage) valid() bool {
-	return u.PromptTokens >= 0 && u.CompletionTokens >= 0 && u.TotalTokens >= u.PromptTokens && u.TotalTokens-u.PromptTokens == u.CompletionTokens
+	return u.TotalTokens <= 1_000_000_000 && u.PromptTokens >= 0 && u.CompletionTokens >= 0 && u.TotalTokens >= u.PromptTokens && u.TotalTokens-u.PromptTokens == u.CompletionTokens
 }
 
 type Completion struct {
@@ -83,7 +83,9 @@ type ErrorEnvelope struct {
 
 func apiError(code string) ErrorEnvelope {
 	messages := map[string]string{
-		"invalid_request": "Invalid or unsupported request.", "invalid_api_key": "A valid bearer key is required.",
+		"rate_limit_exceeded":       "The shared token budget is exhausted.",
+		"all_providers_unavailable": "All configured providers are unavailable.",
+		"invalid_request":           "Invalid or unsupported request.", "invalid_api_key": "A valid bearer key is required.",
 		"model_not_allowed": "The requested model alias is unavailable.", "upstream_failure": "The upstream provider failed.",
 		"deadline_exceeded": "The request deadline expired.", "dependency_unavailable": "The gateway is unavailable.",
 	}

@@ -25,7 +25,7 @@ func testConfig(t *testing.T, url, kind string) Config {
 		t.Fatal(err)
 	}
 	cfg.Providers = map[string]ProviderConfig{"fixture": {Kind: kind, BaseURL: url + "/v1", KeyEnv: "TEST_PROVIDER_KEY"}}
-	cfg.Routes = map[string]Route{"chat": {Provider: "fixture", Model: "upstream-model", MaxOutputTokens: 100}}
+	cfg.Routes = map[string]Route{"chat": {Targets: []Target{{Provider: "fixture", Model: "upstream-model", AttemptTimeout: cfg.RequestTimeout}}, MaxOutputTokens: 100}}
 	cfg.KeyEnv = "TEST_GATEWAY_KEY"
 	t.Setenv("TEST_GATEWAY_KEY", "gateway-test-secret")
 	t.Setenv("TEST_PROVIDER_KEY", "provider-test-secret")
@@ -33,7 +33,7 @@ func testConfig(t *testing.T, url, kind string) Config {
 }
 func testGateway(t *testing.T, c Config) *httptest.Server {
 	t.Helper()
-	handler, err := New(c)
+	handler, err := unitServer(t, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestRejectionsDoNotCallUpstream(t *testing.T) {
 func TestModelsAndReadiness(t *testing.T) {
 	upstream := httptest.NewServer(http.NotFoundHandler())
 	defer upstream.Close()
-	handler, err := New(testConfig(t, upstream.URL, "openai"))
+	handler, err := unitServer(t, testConfig(t, upstream.URL, "openai"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestOverallDeadlineIncludesAdmission(t *testing.T) {
 	cfg.RequestTimeout = Duration(50 * time.Millisecond)
 	cfg.IdleTimeout = cfg.RequestTimeout
 	cfg.WriteTimeout = cfg.RequestTimeout
-	handler, err := New(cfg)
+	handler, err := unitServer(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestAdapterRequestMapping(t *testing.T) {
 	temp := 0.25
 	r := Request{Model: "alias", Messages: []Message{{"system", " keep whitespace "}, {"system", "two"}, {"user", "hello"}}, Temperature: &temp, MaxTokens: &n, Stop: Stop{"end"}, Stream: true}
 	for _, kind := range []string{"openai", "anthropic"} {
-		req, err := upstreamRequest(context.Background(), r, Route{Model: "upstream"}, ProviderConfig{Kind: kind, BaseURL: "http://example.test/v1"}, "credential")
+		req, err := upstreamRequest(context.Background(), r, Target{Model: "upstream"}, ProviderConfig{Kind: kind, BaseURL: "http://example.test/v1"}, "credential")
 		if err != nil {
 			t.Fatal(err)
 		}

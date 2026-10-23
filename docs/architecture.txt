@@ -1,8 +1,9 @@
-PROTOCOL FOUNDATION — design and scope
+RESILIENCE FOUNDATION — design and scope
 
-Client -> authentication -> strict validation -> bounded admission
-       -> one provider HTTP request -> JSON decode or owned SSE reader
-       -> normalized response -> downstream deadline-bounded writes
+Client -> authentication -> validate every target -> bounded admission
+       -> breaker admission -> Redis reservation -> provider attempt
+       -> JSON decode / owned SSE reader -> deadline-bounded downstream writes
+       -> idempotent reconciliation -> at most one eligible fallback attempt
 
 The gateway reuses one HTTP client/transport. Each provider operation uses
 its request context. Redirects are disabled. Upstream errors are reduced to
@@ -34,14 +35,43 @@ is canceled and connections are closed. Exhausting the drain budget exits
 with failure, making incomplete shutdown visible. Deadline error writes
 have a small separate bounded window; they do not restart upstream work.
 
-ACCOUNTING DECISION — pending implementation
+ACCOUNTING AND ROUTING DECISION
 
-Fallback will be introduced together with Redis per-attempt reservations;
-no retries currently occur. Each attempt must own a reservation, retain
-unknown-usage debits, and reconcile known usage idempotently. A cache hit or
-coalesced follower must release its own unused admission reservation.
-SQLite must replace the bootstrap key lookup so revocation is immediate.
-Usage persistence requires a bounded worker and visible loss counters.
+Each upstream attempt owns a distinct reservation. Both bucket and reservation
+keys share a Redis hash tag. Atomic Lua scripts use Redis TIME and integer
+milli-tokens. TTLs cover outstanding reconciliation and all debt refill.
+Unknown usage keeps the whole debit, including failed upstream HTTP calls.
+Only successful complete provider results with all reliable counters qualify
+for reconciliation to actual usage; partial counters never become zero.
+Expired records do not mint credit. Settled markers precede refund writes so
+an unexpected Redis write failure can lose a refund but cannot refund twice.
+Redis clients disable command retries; reservation replays with the same ID
+and amount are idempotent while pending. An ambiguous admission error fails
+closed with no upstream execution. Policy mismatch also fails closed.
+
+Provider attempts are capped at two, one per configured target. Each uses a
+remaining overall deadline bounded by its own timeout. Input is validated
+against all targets before any reservation. Transient failures, 429, and 5xx
+can trigger fallback only before commitment. Jittered delay and Retry-After
+must fit the remaining deadline. The first attempt is reconciled before the
+second reservation. A failed reconciliation blocks fallback. An interrupted
+stream never switches providers; it retains unknown usage even if a partial
+usage event was seen. Once the provider terminal marker is received, final
+usage can be reconciled even if a downstream terminal write fails.
+
+Circuit breakers are local, keyed by protocol, base URL, credential digest,
+and upstream model. A mutex protects closed/open/half-open state. Failure
+windows and open intervals use an injected clock in tests. Generation-tagged
+completion tickets prevent old requests from closing a newly open breaker.
+At most one half-open probe executes. Client cancellation, validation, and
+local Redis failure do not poison provider health.
+
+Readiness checks Redis; inference fails closed without shared admission.
+Existing streams do not depend on Redis to deliver their remaining output.
+Reconciliation is a bounded best-effort operation even on caller cancellation;
+errors retain conservative debits and emit an explicit loss signal. Bootstrap
+authentication still needs SQLite key lookup for immediate revocation. Attempt
+records are JSON logs until SQLite persistence is implemented.
 
 COALESCING DECISION — pending implementation
 
@@ -53,9 +83,7 @@ Process-local singleflight does not prevent duplicate cross-instance work.
 
 RELEASE GATES STILL OPEN
 
-Redis two-instance admission and idempotent reconciliation; fake-clock
-circuit breakers; two-attempt fallback policy; SQLite failure/overflow
-visibility; exact caching and follower cancellation; immutable SIGHUP
+SQLite keys/attempt persistence and failure/overflow visibility; exact caching and follower cancellation; immutable SIGHUP
 snapshots; metrics and dashboard; repeated resource soak runs; comparable
 load tests, profiles, and a measured optimization. The protocol tests and
 SDK demo establish a foundation, not completion of the full PRD.
@@ -63,3 +91,4 @@ SDK demo establish a foundation, not completion of the full PRD.
 PROTOCOL REFERENCES
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events
 https://platform.claude.com/docs/en/build-with-claude/streaming
+https://redis.io/docs/latest/develop/programmability/eval-intro/

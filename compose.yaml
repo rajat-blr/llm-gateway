@@ -1,0 +1,26 @@
+services:
+  mock:
+    build: .
+    entrypoint: ["mock"]
+    command: ["-listen", ":9090"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/healthz"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+  gateway:
+    build: .
+    environment:
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:-demo-local-key}
+      MOCK_API_KEY: fixture-only
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/readyz"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+    stop_grace_period: 12s

@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -292,43 +292,34 @@ func TestClientDisconnectCancelsUpstream(t *testing.T) {
 	}
 }
 func TestOverallDeadlineIncludesAdmission(t *testing.T) {
-	started := make(chan struct{})
 	var calls atomic.Int64
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.Copy(io.Discard, r.Body)
-		if calls.Add(1) == 1 {
-			close(started)
-		}
-		<-r.Context().Done()
-	}))
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }))
 	defer upstream.Close()
 	cfg := testConfig(t, upstream.URL, "openai")
 	cfg.MaxConcurrent = 1
 	cfg.MaxStreams = 1
-	cfg.RequestTimeout = Duration(200 * time.Millisecond)
-	cfg.IdleTimeout = Duration(200 * time.Millisecond)
-	cfg.WriteTimeout = Duration(100 * time.Millisecond)
-	gateway := testGateway(t, cfg)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp := call(t, gateway.URL, input)
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-	}()
-	<-started
-	// Independently exercise cancellable admission without relying on which
-	// transport deadline wins the race at the overall request boundary.
-	slots := make(chan struct{}, 1)
-	slots <- struct{}{}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
-	if err := acquire(ctx, slots); err != context.DeadlineExceeded {
-		t.Fatalf("admission error: %v", err)
+	cfg.RequestTimeout = Duration(50 * time.Millisecond)
+	cfg.IdleTimeout = cfg.RequestTimeout
+	cfg.WriteTimeout = cfg.RequestTimeout
+	handler, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
-	wg.Wait()
+	defer handler.Close()
+	handler.slots <- struct{}{}
+	defer func() { <-handler.slots }()
+	gateway := httptest.NewServer(handler)
+	defer gateway.Close()
+	response := call(t, gateway.URL, input)
+	if response.StatusCode != 504 {
+		t.Fatalf("expected admission timeout: %d", response.StatusCode)
+	}
+	response.Body.Close()
+	if calls.Load() != 0 {
+		t.Fatal("upstream called without admission")
+	}
 }
+
 func TestAdapterRequestMapping(t *testing.T) {
 	n := 42
 	temp := 0.25
@@ -355,5 +346,88 @@ func TestAdapterRequestMapping(t *testing.T) {
 				t.Fatal(string(b))
 			}
 		}
+	}
+}
+
+func TestSlowReaderReleasesUpstreamBeforeOverallDeadline(t *testing.T) {
+	stopped := make(chan struct{})
+	var sent atomic.Int64
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer close(stopped)
+		io.Copy(io.Discard, r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		payload := strings.Repeat("x", 32<<10)
+		event := fmt.Sprintf("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"%s\"},\"finish_reason\":null}]}\n\n", payload)
+		for i := 0; i < 2048; i++ {
+			if r.Context().Err() != nil {
+				return
+			}
+			http.NewResponseController(w).SetWriteDeadline(time.Now().Add(time.Second))
+			if _, err := io.WriteString(w, event); err != nil {
+				return
+			}
+			if http.NewResponseController(w).Flush() != nil {
+				return
+			}
+			sent.Add(int64(len(payload)))
+		}
+	}))
+	defer upstream.Close()
+	cfg := testConfig(t, upstream.URL, "openai")
+	cfg.RequestTimeout = Duration(3 * time.Second)
+	cfg.IdleTimeout = Duration(time.Second)
+	cfg.WriteTimeout = Duration(50 * time.Millisecond)
+	cfg.MaxOutputBytes = 64 << 20
+	gateway := testGateway(t, cfg)
+	conn, err := net.Dial("tcp", strings.TrimPrefix(gateway.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		tcp.SetReadBuffer(1024)
+	}
+	_, err = fmt.Fprintf(conn, "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer gateway-test-secret\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", len(streamInput), streamInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Do not read any response bytes. A finite write deadline must release
+	// the upstream well before the overall three-second request deadline.
+	select {
+	case <-stopped:
+	case <-time.After(1500 * time.Millisecond):
+		conn.Close()
+		t.Fatal("slow reader retained upstream beyond write budget")
+	}
+	if sent.Load() >= 64<<20 {
+		t.Fatal("upstream was consumed completely for an unread client")
+	}
+}
+
+func TestTranslatedStreamBudgetBeforeCommit(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":null}]}\n\n")
+	}))
+	defer upstream.Close()
+	cfg := testConfig(t, upstream.URL, "openai")
+	cfg.MaxOutputBytes = 100
+	gateway := testGateway(t, cfg)
+	response := call(t, gateway.URL, streamInput)
+	b := body(t, response)
+	if response.StatusCode != 502 || !strings.Contains(b, `"code":"upstream_failure"`) || response.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("%d: %s", response.StatusCode, b)
+	}
+}
+func TestTranslatedStreamBudgetAfterCommit(t *testing.T) {
+	upstream := httptest.NewServer(mockprovider.New(mockprovider.Options{Chunks: 100, Payload: "hi "}))
+	defer upstream.Close()
+	cfg := testConfig(t, upstream.URL, "openai")
+	cfg.MaxOutputBytes = 1024
+	gateway := testGateway(t, cfg)
+	response := call(t, gateway.URL, streamInput)
+	b := body(t, response)
+	if response.StatusCode != 200 || !strings.Contains(b, `"code":"upstream_failure"`) || strings.Contains(b, "[DONE]") {
+		t.Fatalf("%d: %s", response.StatusCode, b)
 	}
 }

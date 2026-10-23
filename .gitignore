@@ -14,3 +14,8 @@ coverage.out
 # Local requirements and notes
 *.md
 /LLM Gateway in Go - Revised PRD.pdf
+
+# Python integration tooling
+.venv/
+__pycache__/
+*.pyc

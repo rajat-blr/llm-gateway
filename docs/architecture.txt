@@ -1,0 +1,65 @@
+PROTOCOL FOUNDATION — design and scope
+
+Client -> authentication -> strict validation -> bounded admission
+       -> one provider HTTP request -> JSON decode or owned SSE reader
+       -> normalized response -> downstream deadline-bounded writes
+
+The gateway reuses one HTTP client/transport. Each provider operation uses
+its request context. Redirects are disabled. Upstream errors are reduced to
+fixed messages, and logs contain only request IDs, configured aliases,
+provider names, durations, outcomes, and cache state. Authentication compares a SHA-256 bootstrap key hash; provider credentials are held
+in memory because upstream calls require them.
+
+STREAM OWNERSHIP DECISION
+
+The HTTP handler owns the upstream response body. It calls Next(ctx)
+synchronously and always closes the stream/body. No producer goroutine
+or application event queue exists. A slow downstream naturally pauses
+upstream reads; TCP buffers remain bounded and every write has a deadline.
+Scanner/event and total-byte limits prevent accumulating arbitrarily large
+SSE events or streams. First-event parsing occurs before header commitment.
+After commitment, failure gets a sanitized SSE error and no success marker.
+A successful terminal marker also requires a known finish reason. Usage
+is normalized separately, including Anthropic cumulative usage updates.
+
+HTTP/1.1 is deliberate for this milestone: a connection-level idle read
+deadline belongs to one request. The shared transport limits idle and active
+connections per host. HTTP/2 multiplexing would require a different idle
+stream timeout mechanism; a connection deadline must not expire unrelated
+streams. The overall context handles total request lifetime.
+
+SIGTERM marks unready and stops admission before draining. All requests
+inherit a root context. If the shared shutdown deadline expires, the root
+is canceled and connections are closed. Exhausting the drain budget exits
+with failure, making incomplete shutdown visible. Deadline error writes
+have a small separate bounded window; they do not restart upstream work.
+
+ACCOUNTING DECISION — pending implementation
+
+Fallback will be introduced together with Redis per-attempt reservations;
+no retries currently occur. Each attempt must own a reservation, retain
+unknown-usage debits, and reconcile known usage idempotently. A cache hit or
+coalesced follower must release its own unused admission reservation.
+SQLite must replace the bootstrap key lookup so revocation is immediate.
+Usage persistence requires a bounded worker and visible loss counters.
+
+COALESCING DECISION — pending implementation
+
+Reuse must be enabled by both key and route, and only for non-streaming
+calls. Keys must include key identity, alias, route revision, adapter schema,
+and every effective generation input. Shared execution must own a bounded
+context independent of callers; each caller can stop waiting independently.
+Process-local singleflight does not prevent duplicate cross-instance work.
+
+RELEASE GATES STILL OPEN
+
+Redis two-instance admission and idempotent reconciliation; fake-clock
+circuit breakers; two-attempt fallback policy; SQLite failure/overflow
+visibility; exact caching and follower cancellation; immutable SIGHUP
+snapshots; metrics and dashboard; repeated resource soak runs; comparable
+load tests, profiles, and a measured optimization. The protocol tests and
+SDK demo establish a foundation, not completion of the full PRD.
+
+PROTOCOL REFERENCES
+https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events
+https://platform.claude.com/docs/en/build-with-claude/streaming

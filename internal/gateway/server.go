@@ -218,6 +218,27 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Str
 	w.Header().Set("X-Accel-Buffering", "no")
 	created := time.Now().Unix()
 	var written int64
+	committed := false
+	failure := func(code string) string {
+		if !committed {
+			status := 502
+			if code == "deadline_exceeded" {
+				status = 504
+			}
+			w.Header().Del("X-Gateway-Provider")
+			w.Header().Del("X-Cache")
+			s.writeError(w, status, code)
+		} else {
+			// A fixed-size best-effort error can exceed the data-byte budget.
+			// It has a separate finite write window and never emits [DONE].
+			_ = rc.SetWriteDeadline(time.Now().Add(time.Duration(s.cfg.WriteTimeout)))
+			b, _ := json.Marshal(apiError(code))
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err == nil {
+				_ = rc.Flush()
+			}
+		}
+		return code
+	}
 	send := func(v any) error {
 		b, err := json.Marshal(v)
 		if err != nil {
@@ -230,17 +251,27 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Str
 		if err = rc.SetWriteDeadline(writeDeadline(r.Context(), time.Duration(s.cfg.WriteTimeout))); err != nil {
 			return err
 		}
+		committed = true
 		if _, err = fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
 			return err
 		}
 		return rc.Flush()
 	}
+	onWriteError := func(err error) string {
+		if errors.Is(err, errProtocol) {
+			return failure("upstream_failure")
+		}
+		return "downstream_failure"
+	}
 	for {
 		if event.Done {
 			if includeUsage && event.Usage != nil {
 				if err := send(Completion{ID: id, Object: "chat.completion.chunk", Created: created, Model: alias, Choices: []Choice{}, Usage: event.Usage}); err != nil {
-					return "downstream_failure"
+					return onWriteError(err)
 				}
+			}
+			if written+int64(len("data: [DONE]\n\n")) > s.cfg.MaxOutputBytes {
+				return failure("upstream_failure")
 			}
 			if err := rc.SetWriteDeadline(writeDeadline(r.Context(), time.Duration(s.cfg.WriteTimeout))); err != nil {
 				return "downstream_failure"
@@ -255,24 +286,18 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Str
 		}
 		if event.Delta != nil || event.Finish != nil {
 			if err := send(Completion{ID: id, Object: "chat.completion.chunk", Created: created, Model: alias, Choices: []Choice{{Index: 0, Delta: event.Delta, FinishReason: event.Finish}}}); err != nil {
-				return "downstream_failure"
+				return onWriteError(err)
 			}
 		}
 		var err error
 		event, err = stream.Next(r.Context())
 		if err != nil {
 			_, code := upstreamError(r.Context())
-			// Cancellation of the overall deadline still gets a bounded best-effort
-			// error write. The upstream request remains canceled.
-			_ = rc.SetWriteDeadline(time.Now().Add(time.Duration(s.cfg.WriteTimeout)))
-			b, _ := json.Marshal(apiError(code))
-			if _, writeErr := fmt.Fprintf(w, "data: %s\n\n", b); writeErr == nil {
-				_ = rc.Flush()
-			}
-			return code
+			return failure(code)
 		}
 	}
 }
+
 func acquire(ctx context.Context, slots chan struct{}) error {
 	select {
 	case slots <- struct{}{}:
@@ -286,7 +311,8 @@ func acquire(ctx context.Context, slots chan struct{}) error {
 	}
 }
 func upstreamError(ctx context.Context) (int, string) {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	deadline, hasDeadline := ctx.Deadline()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) || (hasDeadline && !time.Now().Before(deadline)) {
 		return 504, "deadline_exceeded"
 	}
 	return 502, "upstream_failure"

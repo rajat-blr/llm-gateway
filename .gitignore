@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+bin/
+tmp/
+*.db
+*.db-*
+*.prof
+*.test
+coverage.out
+*.bundle
+.DS_Store

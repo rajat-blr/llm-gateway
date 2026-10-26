@@ -107,7 +107,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True, ca
                 )
                 wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))
                 client = OpenAI(api_key="sdk-test-key", base_url=f"http://127.0.0.1:{gateway_port}/v1", max_retries=0, timeout=5)
-                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"], "config": str(path), "management": f"http://127.0.0.1:{management_port}"}
+                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"], "config": str(path), "management": f"http://127.0.0.1:{management_port}", "primary_pid": mock.pid}
             except Exception:
                 logs.flush()
                 logs.seek(0)

@@ -30,6 +30,11 @@ jobs:
       - run: make check
       - run: python -m pip install -r examples/requirements.txt
       - run: make integration
+      - run: python scripts/load_baseline.py --duration 0.2 --runs 1 --concurrency 1 4 --soak-rounds 2 --soak-concurrency 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline-smoke
+          path: tmp/baseline.json
       - run: docker compose up --build --wait
       - run: python examples/chat.py
       - run: python scripts/compose_acceptance.py normal

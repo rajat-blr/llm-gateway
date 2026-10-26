@@ -18,8 +18,9 @@ exact caching/coalescing, atomic SIGHUP routing reload, a separate Prometheus ma
 local pprof, and a provisioned Grafana dashboard.
 Fixtures and pinned SDK acceptance tests require no paid API key.
 
-The complete v1 release remains in progress. Resource soak evidence and
-measured benchmarks/profiling are pending. Readiness checks SQLite key reads,
+The complete v1 release remains in progress. A repeatable local baseline and
+bounded cancellation soak are recorded in ``benchmarks/README.rst``. Long soaks,
+profiling and measured optimization remain pending. Readiness checks SQLite key reads,
 Redis, and validated startup state; provider failure does not affect readiness. No performance claims
 are made.
 
@@ -468,3 +469,19 @@ accepts GET only, permits four simultaneous handlers, and bounds duration
 parameters to 1..30 seconds. CPU profiling defaults to 10 seconds and trace
 to one. Both listeners share the shutdown deadline; exceeding it forcibly
 closes connections. Management/process configuration changes require restart.
+
+Load baseline
+--------------
+
+With the SDK Python environment active and local Redis running::
+
+    make baseline
+
+This runs direct and gateway JSON/SSE fixtures at concurrency 1, 10 and 100,
+three repetitions each, followed by a bounded cancellation/resource soak.
+Results go to ``tmp/baseline.json``. For a short harness check::
+
+    python3 scripts/load_baseline.py --duration 0.2 --runs 1 --concurrency 1 4 --soak-rounds 2 --soak-concurrency 4
+
+See ``benchmarks/README.rst`` for the method, recorded raw results and limits.
+The local fixture measurements do not establish production capacity.

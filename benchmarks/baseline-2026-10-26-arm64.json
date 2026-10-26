@@ -1,0 +1,2027 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-26T09:12:11Z",
+  "gateway_revision": "8bb5f1a8b798b1f8f07b66e8d38fe94e10de8ae3",
+  "environment": {
+    "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "architecture": "arm64",
+    "logical_cpus": 10,
+    "go": "go version go1.27.3 darwin/arm64",
+    "python": "3.14.7",
+    "hardware": {
+      "machdep.cpu.brand_string": "Apple M4",
+      "hw.memsize": "17179869184"
+    },
+    "redis_version": "7.4.11",
+    "gateway_binary_sha256": "19122fb2597648579f5764dac71dfdd4b0c421b0849b73a3064ca8a6c9dc9a18",
+    "gateway_source_dirty": false
+  },
+  "method": {
+    "model": "default-chat",
+    "fixture": {
+      "first_delay_ms": 20,
+      "chunk_delay_ms": 30,
+      "chunks": 3,
+      "payload": "hello ",
+      "fail_every": 0
+    },
+    "max_tokens": 16,
+    "cache": "BYPASS (bootstrap key reuse disabled)",
+    "admission": {
+      "token_limit": {
+        "capacity": 1000000000,
+        "refill_per_second": 1000000
+      },
+      "max_concurrent": 512,
+      "max_streams": 512
+    },
+    "warmup": "one request per worker before each stage",
+    "measurement": "closed loop persistent HTTP connection per worker; nearest-rank percentiles; alternating direct/gateway stage order each run; 250ms runtime sampling",
+    "limits": "Local fixture evidence, not an open-loop capacity test. Python generator, fixture, gateway and Docker Redis share a host. End-to-end percentiles must not be subtracted as per-request overhead.",
+    "driver_sha256": "a301e87f23cfc57cd36b8f9ef6be34fd683d830b85bf7abb99923e358712f088",
+    "duration_seconds_per_stage": 2,
+    "runs": 3,
+    "concurrency": [
+      1,
+      10,
+      100
+    ],
+    "sqlite": {
+      "timeout": "500ms",
+      "busy_timeout": "100ms",
+      "usage_queue": 1024
+    },
+    "bounds": {
+      "request_timeout": "30s",
+      "idle_timeout": "5s",
+      "write_timeout": "5s",
+      "shutdown_timeout": "10s",
+      "max_body_bytes": 1048576,
+      "max_output_bytes": 8388608,
+      "max_event_bytes": 65536
+    }
+  },
+  "stages": [
+    {
+      "duration_including_inflight_drain_seconds": 2.0086157920304686,
+      "successful_requests": 93,
+      "observed_requests_per_second": 46.30054207927351,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 93,
+        "p50_ms": 21.663624909706414,
+        "p95_ms": 22.043125005438924,
+        "p99_ms": 22.736958926543593
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.019999999999999997,
+          "mean_cpu_cores": 0.009957105823499677,
+          "rss_after_bytes": 23789568
+        },
+        "mock": {
+          "cpu_seconds": 0.05,
+          "mean_cpu_cores": 0.0248927645587492,
+          "rss_after_bytes": 12664832
+        }
+      },
+      "generator_mean_cpu_cores": 0.027269525718818553,
+      "generator_process_peak_rss_bytes": 87752704,
+      "sampled_peaks": {
+        "go_goroutines": 15.0,
+        "go_memstats_heap_alloc_bytes": 1232592.0,
+        "go_memstats_heap_inuse_bytes": 3989504.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0,
+        "llmgw_attempts_total": 0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0214038329431787,
+      "successful_requests": 85,
+      "observed_requests_per_second": 42.04998457742082,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 85,
+        "p50_ms": 23.557625012472272,
+        "p95_ms": 25.249291909858584,
+        "p99_ms": 26.110375067219138
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.19,
+          "mean_cpu_cores": 0.09399408317305831,
+          "rss_after_bytes": 27262976
+        },
+        "mock": {
+          "cpu_seconds": 0.039999999999999994,
+          "mean_cpu_cores": 0.019788228036433327,
+          "rss_after_bytes": 13205504
+        }
+      },
+      "generator_mean_cpu_cores": 0.024433019862285122,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 20.0,
+        "go_memstats_heap_alloc_bytes": 2177328.0,
+        "go_memstats_heap_inuse_bytes": 4603904.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 85.0,
+        "llmgw_attempts_total": 85.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0204078750684857,
+      "successful_requests": 84,
+      "observed_requests_per_second": 41.57576350624383,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 84,
+        "p50_ms": 23.515209089964628,
+        "p95_ms": 27.015625033527613,
+        "p99_ms": 35.53600003942847
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.14999999999999997,
+          "mean_cpu_cores": 0.07424243483257825,
+          "rss_after_bytes": 28278784
+        },
+        "mock": {
+          "cpu_seconds": 0.039999999999999994,
+          "mean_cpu_cores": 0.01979798262202087,
+          "rss_after_bytes": 14041088
+        }
+      },
+      "generator_mean_cpu_cores": 0.020505760500758145,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 19.0,
+        "go_memstats_heap_alloc_bytes": 2066664.0,
+        "go_memstats_heap_inuse_bytes": 4415488.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 84.0,
+        "llmgw_attempts_total": 84.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0062322500161827,
+      "successful_requests": 93,
+      "observed_requests_per_second": 46.35555031041388,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 93,
+        "p50_ms": 21.640583989210427,
+        "p95_ms": 21.846541902050376,
+        "p99_ms": 22.193416953086853
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.00996893555062665,
+          "rss_after_bytes": 28344320
+        },
+        "mock": {
+          "cpu_seconds": 0.04000000000000001,
+          "mean_cpu_cores": 0.019937871101253286,
+          "rss_after_bytes": 14614528
+        }
+      },
+      "generator_mean_cpu_cores": 0.024271367385110706,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 17.0,
+        "go_memstats_heap_alloc_bytes": 1860264.0,
+        "go_memstats_heap_inuse_bytes": 4423680.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0092230830341578,
+      "successful_requests": 92,
+      "observed_requests_per_second": 45.78884285017741,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 92,
+        "p50_ms": 21.517541958019137,
+        "p95_ms": 23.586499970406294,
+        "p99_ms": 33.172084018588066
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.010000000000000009,
+          "mean_cpu_cores": 0.004977048135888853,
+          "rss_after_bytes": 26198016
+        },
+        "mock": {
+          "cpu_seconds": 0.03,
+          "mean_cpu_cores": 0.014931144407666545,
+          "rss_after_bytes": 13254656
+        }
+      },
+      "generator_mean_cpu_cores": 0.021564554163179206,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 46.0,
+        "go_memstats_heap_alloc_bytes": 2431592.0,
+        "go_memstats_heap_inuse_bytes": 4947968.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.015620916034095,
+      "successful_requests": 83,
+      "observed_requests_per_second": 41.17837800736338,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 83,
+        "p50_ms": 23.988291970454156,
+        "p95_ms": 26.536333956755698,
+        "p99_ms": 33.168792026117444
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.16999999999999998,
+          "mean_cpu_cores": 0.08434125615965991,
+          "rss_after_bytes": 27344896
+        },
+        "mock": {
+          "cpu_seconds": 0.04000000000000001,
+          "mean_cpu_cores": 0.01984500144933175,
+          "rss_after_bytes": 15466496
+        }
+      },
+      "generator_mean_cpu_cores": 0.022293874628179302,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 20.0,
+        "go_memstats_heap_alloc_bytes": 1905568.0,
+        "go_memstats_heap_inuse_bytes": 4358144.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 83.0,
+        "llmgw_attempts_total": 83.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 1,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.062457124935463,
+      "successful_requests": 18,
+      "observed_requests_per_second": 8.72745415280487,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 18,
+        "p50_ms": 114.57800003699958,
+        "p95_ms": 115.89625000488013,
+        "p99_ms": 115.89625000488013
+      },
+      "first_text": {
+        "samples": 18,
+        "p50_ms": 52.49162495601922,
+        "p95_ms": 52.98787506762892,
+        "p99_ms": 52.98787506762892
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.010000000000000009,
+          "mean_cpu_cores": 0.004848585640447154,
+          "rss_after_bytes": 22216704
+        },
+        "mock": {
+          "cpu_seconds": 0.019999999999999962,
+          "mean_cpu_cores": 0.009697171280894281,
+          "rss_after_bytes": 13713408
+        }
+      },
+      "generator_mean_cpu_cores": 0.013330216501281345,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 17.0,
+        "go_memstats_heap_alloc_bytes": 1929800.0,
+        "go_memstats_heap_inuse_bytes": 4546560.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.111925416975282,
+      "successful_requests": 18,
+      "observed_requests_per_second": 8.523028254368828,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 18,
+        "p50_ms": 117.07716598175466,
+        "p95_ms": 122.72145797032863,
+        "p99_ms": 122.72145797032863
+      },
+      "first_text": {
+        "samples": 18,
+        "p50_ms": 53.49237495101988,
+        "p95_ms": 59.41500002518296,
+        "p99_ms": 59.41500002518296
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.06999999999999995,
+          "mean_cpu_cores": 0.03314510987810098,
+          "rss_after_bytes": 25935872
+        },
+        "mock": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009470031393743151,
+          "rss_after_bytes": 12271616
+        }
+      },
+      "generator_mean_cpu_cores": 0.012779807365856339,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 19.0,
+        "go_memstats_heap_alloc_bytes": 1960936.0,
+        "go_memstats_heap_inuse_bytes": 4694016.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 1.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 18.0,
+        "llmgw_attempts_total": 18.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.048204708029516,
+      "successful_requests": 17,
+      "observed_requests_per_second": 8.299951627567014,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 17,
+        "p50_ms": 118.32341691479087,
+        "p95_ms": 143.41333298943937,
+        "p99_ms": 143.41333298943937
+      },
+      "first_text": {
+        "samples": 17,
+        "p50_ms": 54.1891671018675,
+        "p95_ms": 64.07470803242177,
+        "p99_ms": 64.07470803242177
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.06000000000000005,
+          "mean_cpu_cores": 0.02929394692082478,
+          "rss_after_bytes": 26214400
+        },
+        "mock": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009764648973608259,
+          "rss_after_bytes": 11567104
+        }
+      },
+      "generator_mean_cpu_cores": 0.01269355543324203,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 19.0,
+        "go_memstats_heap_alloc_bytes": 2055080.0,
+        "go_memstats_heap_inuse_bytes": 4644864.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 1.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 17.0,
+        "llmgw_attempts_total": 17.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.1042647500289604,
+      "successful_requests": 18,
+      "observed_requests_per_second": 8.554056707813155,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 18,
+        "p50_ms": 116.65225005708635,
+        "p95_ms": 119.55270904581994,
+        "p99_ms": 119.55270904581994
+      },
+      "first_text": {
+        "samples": 18,
+        "p50_ms": 53.47341694869101,
+        "p95_ms": 55.0301669863984,
+        "p99_ms": 55.0301669863984
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009504507453125735,
+          "rss_after_bytes": 26361856
+        },
+        "mock": {
+          "cpu_seconds": 0.02999999999999997,
+          "mean_cpu_cores": 0.014256761179688578,
+          "rss_after_bytes": 11288576
+        }
+      },
+      "generator_mean_cpu_cores": 0.015950939633208257,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 17.0,
+        "go_memstats_heap_alloc_bytes": 2433912.0,
+        "go_memstats_heap_inuse_bytes": 4759552.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.007256916956976,
+      "successful_requests": 17,
+      "observed_requests_per_second": 8.469269606888286,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 17,
+        "p50_ms": 118.0429169908166,
+        "p95_ms": 119.53224998433143,
+        "p99_ms": 119.53224998433143
+      },
+      "first_text": {
+        "samples": 17,
+        "p50_ms": 54.689791053533554,
+        "p95_ms": 56.42412509769201,
+        "p99_ms": 56.42412509769201
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.019999999999999907,
+          "mean_cpu_cores": 0.009963846596339112,
+          "rss_after_bytes": 26607616
+        },
+        "mock": {
+          "cpu_seconds": 0.030000000000000027,
+          "mean_cpu_cores": 0.014945769894508751,
+          "rss_after_bytes": 11550720
+        }
+      },
+      "generator_mean_cpu_cores": 0.019063827692775752,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 18.0,
+        "go_memstats_heap_alloc_bytes": 2192616.0,
+        "go_memstats_heap_inuse_bytes": 4743168.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0178176250774413,
+      "successful_requests": 15,
+      "observed_requests_per_second": 7.433773901853156,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 15,
+        "p50_ms": 121.69237504713237,
+        "p95_ms": 310.70858298335224,
+        "p99_ms": 310.70858298335224
+      },
+      "first_text": {
+        "samples": 15,
+        "p50_ms": 55.43687508907169,
+        "p95_ms": 58.88391600456089,
+        "p99_ms": 58.88391600456089
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.06000000000000005,
+          "mean_cpu_cores": 0.02973509560741265,
+          "rss_after_bytes": 26460160
+        },
+        "mock": {
+          "cpu_seconds": 0.019999999999999962,
+          "mean_cpu_cores": 0.00991169853580419,
+          "rss_after_bytes": 11632640
+        }
+      },
+      "generator_mean_cpu_cores": 0.014872999237900981,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 20.0,
+        "go_memstats_heap_alloc_bytes": 1835336.0,
+        "go_memstats_heap_inuse_bytes": 4448256.0,
+        "llmgw_active_attempts": 1.0,
+        "llmgw_active_streams": 1.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 15.0,
+        "llmgw_attempts_total": 15.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 1,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.015760291949846,
+      "successful_requests": 870,
+      "observed_requests_per_second": 431.5989373708957,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 870,
+        "p50_ms": 23.035291931591928,
+        "p95_ms": 25.64654196612537,
+        "p99_ms": 26.57641703262925
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009921814652204508,
+          "rss_after_bytes": 26361856
+        },
+        "mock": {
+          "cpu_seconds": 0.22000000000000003,
+          "mean_cpu_cores": 0.10913996117424951,
+          "rss_after_bytes": 16859136
+        }
+      },
+      "generator_mean_cpu_cores": 0.156832139844466,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 17.0,
+        "go_memstats_heap_alloc_bytes": 2254720.0,
+        "go_memstats_heap_inuse_bytes": 4669440.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0027724590618163,
+      "successful_requests": 800,
+      "observed_requests_per_second": 399.4462757765073,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 800,
+        "p50_ms": 24.91449995432049,
+        "p95_ms": 27.701625018380582,
+        "p99_ms": 29.442459112033248
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.8200000000000001,
+          "mean_cpu_cores": 0.40943243267092005,
+          "rss_after_bytes": 33374208
+        },
+        "mock": {
+          "cpu_seconds": 0.14,
+          "mean_cpu_cores": 0.0699030982608888,
+          "rss_after_bytes": 17367040
+        }
+      },
+      "generator_mean_cpu_cores": 0.12128736786893399,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 56.0,
+        "go_memstats_heap_alloc_bytes": 3271192.0,
+        "go_memstats_heap_inuse_bytes": 6651904.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 1.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 800.0,
+        "llmgw_attempts_total": 800.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0213261250173673,
+      "successful_requests": 810,
+      "observed_requests_per_second": 400.72702270794645,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 810,
+        "p50_ms": 24.897041032090783,
+        "p95_ms": 27.39875006955117,
+        "p99_ms": 28.741750051267445
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.8600000000000001,
+          "mean_cpu_cores": 0.42546325867757284,
+          "rss_after_bytes": 35127296
+        },
+        "mock": {
+          "cpu_seconds": 0.15999999999999992,
+          "mean_cpu_cores": 0.0791559551028042,
+          "rss_after_bytes": 17809408
+        }
+      },
+      "generator_mean_cpu_cores": 0.1279105814742183,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 55.0,
+        "go_memstats_heap_alloc_bytes": 3256344.0,
+        "go_memstats_heap_inuse_bytes": 6553600.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 810.0,
+        "llmgw_attempts_total": 810.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0214037920814008,
+      "successful_requests": 870,
+      "observed_requests_per_second": 430.3939684926472,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 870,
+        "p50_ms": 23.114207899197936,
+        "p95_ms": 25.44504194520414,
+        "p99_ms": 26.673833024688065
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009894114218221783,
+          "rss_after_bytes": 35127296
+        },
+        "mock": {
+          "cpu_seconds": 0.22999999999999998,
+          "mean_cpu_cores": 0.1137823135095504,
+          "rss_after_bytes": 17874944
+        }
+      },
+      "generator_mean_cpu_cores": 0.16737873022965782,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 35.0,
+        "go_memstats_heap_alloc_bytes": 3479872.0,
+        "go_memstats_heap_inuse_bytes": 6545408.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.024282041937113,
+      "successful_requests": 880,
+      "observed_requests_per_second": 434.7220307096606,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 880,
+        "p50_ms": 22.924000048078597,
+        "p95_ms": 25.077208993025124,
+        "p99_ms": 26.003999984823167
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.029999999999999805,
+          "mean_cpu_cores": 0.014820069228738332,
+          "rss_after_bytes": 35143680
+        },
+        "mock": {
+          "cpu_seconds": 0.22999999999999998,
+          "mean_cpu_cores": 0.11362053075366128,
+          "rss_after_bytes": 18235392
+        }
+      },
+      "generator_mean_cpu_cores": 0.16863855575842973,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 35.0,
+        "go_memstats_heap_alloc_bytes": 3956312.0,
+        "go_memstats_heap_inuse_bytes": 7053312.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.019327083020471,
+      "successful_requests": 810,
+      "observed_requests_per_second": 401.1237242400659,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 810,
+        "p50_ms": 24.68870801385492,
+        "p95_ms": 27.78316696640104,
+        "p99_ms": 30.22483305539936
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.8500000000000001,
+          "mean_cpu_cores": 0.42093230321488395,
+          "rss_after_bytes": 36356096
+        },
+        "mock": {
+          "cpu_seconds": 0.16000000000000014,
+          "mean_cpu_cores": 0.07923431589927234,
+          "rss_after_bytes": 18350080
+        }
+      },
+      "generator_mean_cpu_cores": 0.12116759194553903,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 55.0,
+        "go_memstats_heap_alloc_bytes": 3136808.0,
+        "go_memstats_heap_inuse_bytes": 6430720.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 810.0,
+        "llmgw_attempts_total": 810.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 10,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.028312291018665,
+      "successful_requests": 170,
+      "observed_requests_per_second": 83.8135235647673,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 170,
+        "p50_ms": 118.67062503006309,
+        "p95_ms": 126.9938750192523,
+        "p99_ms": 129.29883296601474
+      },
+      "first_text": {
+        "samples": 170,
+        "p50_ms": 54.23370795324445,
+        "p95_ms": 56.97316594887525,
+        "p99_ms": 57.84795805811882
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000018,
+          "mean_cpu_cores": 0.009860414537031455,
+          "rss_after_bytes": 36356096
+        },
+        "mock": {
+          "cpu_seconds": 0.10999999999999988,
+          "mean_cpu_cores": 0.05423227995367289,
+          "rss_after_bytes": 18382848
+        }
+      },
+      "generator_mean_cpu_cores": 0.07719767843114597,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 35.0,
+        "go_memstats_heap_alloc_bytes": 3399184.0,
+        "go_memstats_heap_inuse_bytes": 6422528.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.10643595806323,
+      "successful_requests": 170,
+      "observed_requests_per_second": 80.7050408293956,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 170,
+        "p50_ms": 120.96299999393523,
+        "p95_ms": 131.5276250243187,
+        "p99_ms": 166.9741669902578
+      },
+      "first_text": {
+        "samples": 170,
+        "p50_ms": 55.68712507374585,
+        "p95_ms": 68.14416602719575,
+        "p99_ms": 100.51733395084739
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.3500000000000001,
+          "mean_cpu_cores": 0.16615743700169686,
+          "rss_after_bytes": 36601856
+        },
+        "mock": {
+          "cpu_seconds": 0.10000000000000009,
+          "mean_cpu_cores": 0.04747355342905628,
+          "rss_after_bytes": 18382848
+        }
+      },
+      "generator_mean_cpu_cores": 0.07287048030699855,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 55.0,
+        "go_memstats_heap_alloc_bytes": 3246784.0,
+        "go_memstats_heap_inuse_bytes": 6668288.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 10.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 170.0,
+        "llmgw_attempts_total": 170.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.099317750078626,
+      "successful_requests": 170,
+      "observed_requests_per_second": 80.97868938307838,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 170,
+        "p50_ms": 123.59729094896466,
+        "p95_ms": 126.98920897673815,
+        "p99_ms": 128.09187499806285
+      },
+      "first_text": {
+        "samples": 170,
+        "p50_ms": 56.37429095804691,
+        "p95_ms": 58.85104206390679,
+        "p99_ms": 59.980457997880876
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.31999999999999984,
+          "mean_cpu_cores": 0.15243047413285332,
+          "rss_after_bytes": 36864000
+        },
+        "mock": {
+          "cpu_seconds": 0.09999999999999987,
+          "mean_cpu_cores": 0.047634523166516625,
+          "rss_after_bytes": 18382848
+        }
+      },
+      "generator_mean_cpu_cores": 0.07403071783401022,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 55.0,
+        "go_memstats_heap_alloc_bytes": 3077392.0,
+        "go_memstats_heap_inuse_bytes": 6619136.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 10.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 170.0,
+        "llmgw_attempts_total": 170.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0258882920024917,
+      "successful_requests": 170,
+      "observed_requests_per_second": 83.9138074251682,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 170,
+        "p50_ms": 119.00912504643202,
+        "p95_ms": 121.98316701687872,
+        "p99_ms": 122.95804102905095
+      },
+      "first_text": {
+        "samples": 170,
+        "p50_ms": 54.35487499926239,
+        "p95_ms": 56.361333001405,
+        "p99_ms": 56.98787502478808
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.020000000000000462,
+          "mean_cpu_cores": 0.00987221263825531,
+          "rss_after_bytes": 36864000
+        },
+        "mock": {
+          "cpu_seconds": 0.1200000000000001,
+          "mean_cpu_cores": 0.05923327582953054,
+          "rss_after_bytes": 18513920
+        }
+      },
+      "generator_mean_cpu_cores": 0.0806485730950655,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 36.0,
+        "go_memstats_heap_alloc_bytes": 3120944.0,
+        "go_memstats_heap_inuse_bytes": 6864896.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0192739170743152,
+      "successful_requests": 160,
+      "observed_requests_per_second": 79.2364020785356,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 160,
+        "p50_ms": 118.6723749851808,
+        "p95_ms": 238.9026249293238,
+        "p99_ms": 242.3705830005929
+      },
+      "first_text": {
+        "samples": 160,
+        "p50_ms": 53.89437510166317,
+        "p95_ms": 175.79125007614493,
+        "p99_ms": 178.57574997469783
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.019999999999999574,
+          "mean_cpu_cores": 0.009904550259816739,
+          "rss_after_bytes": 36864000
+        },
+        "mock": {
+          "cpu_seconds": 0.10000000000000009,
+          "mean_cpu_cores": 0.049522751299084795,
+          "rss_after_bytes": 18513920
+        }
+      },
+      "generator_mean_cpu_cores": 0.06714344143881207,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 35.0,
+        "go_memstats_heap_alloc_bytes": 3826072.0,
+        "go_memstats_heap_inuse_bytes": 6938624.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.1084455420495942,
+      "successful_requests": 170,
+      "observed_requests_per_second": 80.62811991565363,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 170,
+        "p50_ms": 124.03004197403789,
+        "p95_ms": 127.69524997565895,
+        "p99_ms": 128.9115840336308
+      },
+      "first_text": {
+        "samples": 170,
+        "p50_ms": 56.628167047165334,
+        "p95_ms": 59.58162492606789,
+        "p99_ms": 60.41595805436373
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.33000000000000007,
+          "mean_cpu_cores": 0.15651340924803356,
+          "rss_after_bytes": 37093376
+        },
+        "mock": {
+          "cpu_seconds": 0.08999999999999986,
+          "mean_cpu_cores": 0.04268547524946362,
+          "rss_after_bytes": 18546688
+        }
+      },
+      "generator_mean_cpu_cores": 0.07221908129150935,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 55.0,
+        "go_memstats_heap_alloc_bytes": 3254648.0,
+        "go_memstats_heap_inuse_bytes": 6627328.0,
+        "llmgw_active_attempts": 10.0,
+        "llmgw_active_streams": 10.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 170.0,
+        "llmgw_attempts_total": 170.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 10,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0217016249662265,
+      "successful_requests": 8350,
+      "observed_requests_per_second": 4130.184146307688,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 8350,
+        "p50_ms": 22.229499998502433,
+        "p95_ms": 26.113290921784937,
+        "p99_ms": 144.93620803114027
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.019999999999999574,
+          "mean_cpu_cores": 0.009892656637862514,
+          "rss_after_bytes": 37093376
+        },
+        "mock": {
+          "cpu_seconds": 0.8199999999999998,
+          "mean_cpu_cores": 0.4055989221523717,
+          "rss_after_bytes": 20316160
+        }
+      },
+      "generator_mean_cpu_cores": 0.6493564548734686,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 36.0,
+        "go_memstats_heap_alloc_bytes": 3441360.0,
+        "go_memstats_heap_inuse_bytes": 6995968.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.022797957994044,
+      "successful_requests": 8825,
+      "observed_requests_per_second": 4362.768889064691,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 8825,
+        "p50_ms": 22.04004197847098,
+        "p95_ms": 26.31050010677427,
+        "p99_ms": 30.72037489619106
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 3.5199999999999996,
+          "mean_cpu_cores": 1.740163908159514,
+          "rss_after_bytes": 53297152
+        },
+        "mock": {
+          "cpu_seconds": 0.71,
+          "mean_cpu_cores": 0.35099897011172015,
+          "rss_after_bytes": 20611072
+        }
+      },
+      "generator_mean_cpu_cores": 0.6008479468731885,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 416.0,
+        "go_memstats_heap_alloc_bytes": 12523872.0,
+        "go_memstats_heap_inuse_bytes": 16072704.0,
+        "llmgw_active_attempts": 96.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 58.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 8825.0,
+        "llmgw_attempts_total": 8825.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0218202919932082,
+      "successful_requests": 9221,
+      "observed_requests_per_second": 4560.7416428239985,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 9221,
+        "p50_ms": 21.437207935377955,
+        "p95_ms": 23.758542025461793,
+        "p99_ms": 29.676000005565584
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 3.629999999999999,
+          "mean_cpu_cores": 1.7954117951904467,
+          "rss_after_bytes": 54263808
+        },
+        "mock": {
+          "cpu_seconds": 0.7999999999999998,
+          "mean_cpu_cores": 0.3956830402623574,
+          "rss_after_bytes": 20643840
+        }
+      },
+      "generator_mean_cpu_cores": 0.5551057155992626,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 416.0,
+        "go_memstats_heap_alloc_bytes": 11800808.0,
+        "go_memstats_heap_inuse_bytes": 15433728.0,
+        "llmgw_active_attempts": 99.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 47.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 9221.0,
+        "llmgw_attempts_total": 9221.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0201536669628695,
+      "successful_requests": 4403,
+      "observed_requests_per_second": 2179.5371669025253,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 4403,
+        "p50_ms": 21.89337508752942,
+        "p95_ms": 30.389291001483798,
+        "p99_ms": 1029.1024170583114
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.0,
+          "mean_cpu_cores": 0.0,
+          "rss_after_bytes": 54263808
+        },
+        "mock": {
+          "cpu_seconds": 0.3700000000000001,
+          "mean_cpu_cores": 0.1831543837733215,
+          "rss_after_bytes": 23822336
+        }
+      },
+      "generator_mean_cpu_cores": 0.29114567352900783,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 216.0,
+        "go_memstats_heap_alloc_bytes": 9719616.0,
+        "go_memstats_heap_inuse_bytes": 15671296.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0174735420150682,
+      "successful_requests": 9000,
+      "observed_requests_per_second": 4461.0250457166985,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 9000,
+        "p50_ms": 22.141417022794485,
+        "p95_ms": 25.008208001963794,
+        "p99_ms": 27.105208951979876
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.010000000000001563,
+          "mean_cpu_cores": 0.004956694495241551,
+          "rss_after_bytes": 54329344
+        },
+        "mock": {
+          "cpu_seconds": 0.8499999999999996,
+          "mean_cpu_cores": 0.42131903209546584,
+          "rss_after_bytes": 24543232
+        }
+      },
+      "generator_mean_cpu_cores": 0.7088033474638343,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 217.0,
+        "go_memstats_heap_alloc_bytes": 11123976.0,
+        "go_memstats_heap_inuse_bytes": 17195008.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.022735249949619,
+      "successful_requests": 9186,
+      "observed_requests_per_second": 4541.375348172134,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 9186,
+        "p50_ms": 21.53937506955117,
+        "p95_ms": 23.634291952475905,
+        "p99_ms": 27.005207957699895
+      },
+      "first_text": {
+        "samples": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 4.100000000000001,
+          "mean_cpu_cores": 2.0269582982261873,
+          "rss_after_bytes": 55017472
+        },
+        "mock": {
+          "cpu_seconds": 0.8799999999999999,
+          "mean_cpu_cores": 0.4350544640095229,
+          "rss_after_bytes": 24559616
+        }
+      },
+      "generator_mean_cpu_cores": 0.6219741313309959,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 418.0,
+        "go_memstats_heap_alloc_bytes": 11962168.0,
+        "go_memstats_heap_inuse_bytes": 15876096.0,
+        "llmgw_active_attempts": 100.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 21.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 9186.0,
+        "llmgw_attempts_total": 9186.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "json",
+      "concurrency": 100,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.108441124903038,
+      "successful_requests": 1716,
+      "observed_requests_per_second": 813.8714331323406,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1716,
+        "p50_ms": 116.10087507870048,
+        "p95_ms": 136.83225004933774,
+        "p99_ms": 149.14770901668817
+      },
+      "first_text": {
+        "samples": 1716,
+        "p50_ms": 52.440500003285706,
+        "p95_ms": 64.83104196377099,
+        "p99_ms": 77.31791702099144
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.019999999999999574,
+          "mean_cpu_cores": 0.009485681038838267,
+          "rss_after_bytes": 55001088
+        },
+        "mock": {
+          "cpu_seconds": 0.7400000000000002,
+          "mean_cpu_cores": 0.35097019843702343,
+          "rss_after_bytes": 24838144
+        }
+      },
+      "generator_mean_cpu_cores": 0.44572456347018874,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 216.0,
+        "go_memstats_heap_alloc_bytes": 8920800.0,
+        "go_memstats_heap_inuse_bytes": 15458304.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0169430000241846,
+      "successful_requests": 1500,
+      "observed_requests_per_second": 743.6997475793881,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1500,
+        "p50_ms": 123.29612497705966,
+        "p95_ms": 260.1550000254065,
+        "p99_ms": 272.07850001286715
+      },
+      "first_text": {
+        "samples": 1500,
+        "p50_ms": 53.087708074599504,
+        "p95_ms": 60.408374993130565,
+        "p99_ms": 67.13804206810892
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 1.0300000000000011,
+          "mean_cpu_cores": 0.5106738266711804,
+          "rss_after_bytes": 54001664
+        },
+        "mock": {
+          "cpu_seconds": 0.33999999999999986,
+          "mean_cpu_cores": 0.16857194278466126,
+          "rss_after_bytes": 24772608
+        }
+      },
+      "generator_mean_cpu_cores": 0.25578809118245516,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 415.0,
+        "go_memstats_heap_alloc_bytes": 12592912.0,
+        "go_memstats_heap_inuse_bytes": 16924672.0,
+        "llmgw_active_attempts": 100.0,
+        "llmgw_active_streams": 100.0,
+        "llmgw_usage_queue_depth": 99.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 1500.0,
+        "llmgw_attempts_total": 1500.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 1
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0792222500313073,
+      "successful_requests": 1600,
+      "observed_requests_per_second": 769.5185062471837,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1600,
+        "p50_ms": 129.02983301319182,
+        "p95_ms": 144.441333017312,
+        "p99_ms": 150.77808394562453
+      },
+      "first_text": {
+        "samples": 1600,
+        "p50_ms": 53.470415994524956,
+        "p95_ms": 61.52016599662602,
+        "p99_ms": 65.92229101806879
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 1.2399999999999984,
+          "mean_cpu_cores": 0.5963768423415666,
+          "rss_after_bytes": 54525952
+        },
+        "mock": {
+          "cpu_seconds": 0.41999999999999904,
+          "mean_cpu_cores": 0.20199860788988527,
+          "rss_after_bytes": 24805376
+        }
+      },
+      "generator_mean_cpu_cores": 0.311605938225336,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 416.0,
+        "go_memstats_heap_alloc_bytes": 13179096.0,
+        "go_memstats_heap_inuse_bytes": 17104896.0,
+        "llmgw_active_attempts": 100.0,
+        "llmgw_active_streams": 100.0,
+        "llmgw_usage_queue_depth": 65.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 1600.0,
+        "llmgw_attempts_total": 1600.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0273733329959214,
+      "successful_requests": 1300,
+      "observed_requests_per_second": 641.2237839189411,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1300,
+        "p50_ms": 118.45791607629508,
+        "p95_ms": 577.8761249966919,
+        "p99_ms": 590.978541993536
+      },
+      "first_text": {
+        "samples": 1300,
+        "p50_ms": 53.149124956689775,
+        "p95_ms": 59.186540893279016,
+        "p99_ms": 63.38579207658768
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.00999999999999801,
+          "mean_cpu_cores": 0.004932490645529334,
+          "rss_after_bytes": 54263808
+        },
+        "mock": {
+          "cpu_seconds": 0.4900000000000002,
+          "mean_cpu_cores": 0.24169204163098557,
+          "rss_after_bytes": 24182784
+        }
+      },
+      "generator_mean_cpu_cores": 0.32012850787620906,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 215.0,
+        "go_memstats_heap_alloc_bytes": 11716880.0,
+        "go_memstats_heap_inuse_bytes": 16850944.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 2
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.1030418330337852,
+      "successful_requests": 1751,
+      "observed_requests_per_second": 832.6035043601865,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1751,
+        "p50_ms": 115.51787506323308,
+        "p95_ms": 128.7741670385003,
+        "p99_ms": 135.9997499966994
+      },
+      "first_text": {
+        "samples": 1751,
+        "p50_ms": 52.57529194932431,
+        "p95_ms": 59.580500004813075,
+        "p99_ms": 63.3101660059765
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 0.030000000000001137,
+          "mean_cpu_cores": 0.014265051473904366,
+          "rss_after_bytes": 54034432
+        },
+        "mock": {
+          "cpu_seconds": 0.7799999999999994,
+          "mean_cpu_cores": 0.3708913383214992,
+          "rss_after_bytes": 24133632
+        }
+      },
+      "generator_mean_cpu_cores": 0.486410200658889,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 215.0,
+        "go_memstats_heap_alloc_bytes": 12662912.0,
+        "go_memstats_heap_inuse_bytes": 17883136.0,
+        "llmgw_active_attempts": 0.0,
+        "llmgw_active_streams": 0.0,
+        "llmgw_usage_queue_depth": 0.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 0.0,
+        "llmgw_attempts_total": 0.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "direct",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 3
+    },
+    {
+      "duration_including_inflight_drain_seconds": 2.0881727910600603,
+      "successful_requests": 1700,
+      "observed_requests_per_second": 814.1088741688831,
+      "errors": 0,
+      "error_examples": [],
+      "latency": {
+        "samples": 1700,
+        "p50_ms": 120.29191700275987,
+        "p95_ms": 134.1772919986397,
+        "p99_ms": 138.84425000287592
+      },
+      "first_text": {
+        "samples": 1700,
+        "p50_ms": 53.05383400991559,
+        "p95_ms": 58.448457974009216,
+        "p99_ms": 62.157000065781176
+      },
+      "cpu": {
+        "gateway": {
+          "cpu_seconds": 1.4400000000000013,
+          "mean_cpu_cores": 0.6895981051783486,
+          "rss_after_bytes": 55050240
+        },
+        "mock": {
+          "cpu_seconds": 0.41999999999999993,
+          "mean_cpu_cores": 0.20113278067701815,
+          "rss_after_bytes": 24133632
+        }
+      },
+      "generator_mean_cpu_cores": 0.33038693107852063,
+      "generator_process_peak_rss_bytes": 87834624,
+      "sampled_peaks": {
+        "go_goroutines": 415.0,
+        "go_memstats_heap_alloc_bytes": 9881440.0,
+        "go_memstats_heap_inuse_bytes": 15409152.0,
+        "llmgw_active_attempts": 100.0,
+        "llmgw_active_streams": 100.0,
+        "llmgw_usage_queue_depth": 64.0
+      },
+      "counter_deltas": {
+        "llmgw_requests_total": 1700.0,
+        "llmgw_attempts_total": 1700.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "target": "gateway",
+      "mode": "stream",
+      "concurrency": 100,
+      "run": 3
+    }
+  ],
+  "soak": {
+    "rounds": 10,
+    "concurrency": 32,
+    "disconnect_fraction": 0.5,
+    "upstream_cancellations": 160,
+    "quiescent_samples": [
+      {
+        "round": 1,
+        "go_goroutines": 184.0,
+        "go_memstats_heap_alloc_bytes": 12010472.0,
+        "go_memstats_heap_inuse_bytes": 16769024.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 2,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 6598544.0,
+        "go_memstats_heap_inuse_bytes": 12566528.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 3,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 7600384.0,
+        "go_memstats_heap_inuse_bytes": 13664256.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 4,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 8855344.0,
+        "go_memstats_heap_inuse_bytes": 14647296.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 5,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 5549344.0,
+        "go_memstats_heap_inuse_bytes": 11288576.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 6,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 6581696.0,
+        "go_memstats_heap_inuse_bytes": 12460032.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 7,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 5122304.0,
+        "go_memstats_heap_inuse_bytes": 10813440.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 8,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 6052272.0,
+        "go_memstats_heap_inuse_bytes": 11812864.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 9,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 5389304.0,
+        "go_memstats_heap_inuse_bytes": 10944512.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      {
+        "round": 10,
+        "go_goroutines": 47.0,
+        "go_memstats_heap_alloc_bytes": 6361664.0,
+        "go_memstats_heap_inuse_bytes": 11911168.0,
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      }
+    ],
+    "checks": "Every disconnect canceled upstream; every round drained active streams/attempts/slots/shared jobs/waiters/usage within 5s; heap/goroutines reported without a leak-free claim."
+  }
+}

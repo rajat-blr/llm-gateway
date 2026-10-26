@@ -196,3 +196,29 @@ func TestRedisOutageFailsClosed(t *testing.T) {
 		t.Fatalf("outage: %v", err)
 	}
 }
+
+func TestPerKeyPolicyAndIndependentBuckets(t *testing.T) {
+	a, b := stores(t, 1000, 10)
+	ctx := context.Background()
+	policy := Policy{Capacity: 100, RefillPerSecond: 1}
+	first, err := a.Reserve(ctx, "first-key", "one", 100, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Remaining != 0 {
+		t.Fatal("per-key policy ignored")
+	}
+	if _, err = b.Reserve(ctx, "second-key", "one", 100, policy); err != nil {
+		t.Fatal("unrelated key shared a bucket")
+	}
+	actual := int64(10)
+	if err = b.Reconcile(ctx, first, &actual); err != nil {
+		t.Fatal("reconciliation used global rather than pinned key policy")
+	}
+	if _, err = a.Reserve(ctx, "first-key", "two", 91, policy); err == nil {
+		t.Fatal("over-refund across policy scopes")
+	}
+	if _, err = a.Reserve(ctx, "first-key", "three", 90, policy); err != nil {
+		t.Fatal("per-key refund missing")
+	}
+}

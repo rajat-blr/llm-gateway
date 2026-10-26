@@ -4,12 +4,14 @@ import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import subprocess
 import tempfile
 import time
 import unittest
 import uuid
 import urllib.request
+import urllib.error
 
 from openai import APIError, APIStatusError, BadRequestError, OpenAI
 
@@ -73,8 +75,9 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
                 target["attempt_timeout"] = config["request_timeout"]
     if seconds(config["backoff_max"]) > seconds(config["request_timeout"]):
         config["backoff_max"] = config["request_timeout"]
-    env = dict(os.environ, GATEWAY_API_KEY="sdk-test-key", MOCK_API_KEY="fixture")
+    env = dict(os.environ, GATEWAY_API_KEY="sdk-test-key", GATEWAY_ADMIN_TOKEN="sdk-admin-test-token", MOCK_API_KEY="fixture")
     with tempfile.TemporaryDirectory(prefix="gateway-sdk-") as directory:
+        config["sqlite"]["path"] = str(Path(directory) / "gateway.db")
         path = Path(directory) / "config.json"
         path.write_text(json.dumps(config))
         with open(Path(directory) / "logs.txt", "w+") as logs:
@@ -97,7 +100,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
                 )
                 wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))
                 client = OpenAI(api_key="sdk-test-key", base_url=f"http://127.0.0.1:{gateway_port}/v1", max_retries=0, timeout=5)
-                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats"}
+                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"]}
             except Exception:
                 logs.flush()
                 logs.seek(0)
@@ -110,6 +113,15 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
                     stop(gateway)
                 stop(mock)
                 stop(secondary)
+
+
+def admin(client, method, path, payload=None):
+    base = str(client.base_url).rstrip("/").removesuffix("/v1")
+    data = json.dumps(payload).encode() if payload is not None else None
+    request = urllib.request.Request(base + path, data=data, method=method, headers={"Content-Type": "application/json", "Authorization": "Bearer sdk-admin-test-token"})
+    with urllib.request.urlopen(request, timeout=2) as response:
+        content = response.read()
+        return json.loads(content) if content else {}
 
 
 MESSAGES = [{"role": "user", "content": "Hello"}]
@@ -205,6 +217,72 @@ class SDKAcceptance(unittest.TestCase):
             self.assertEqual(error.exception.status_code, 503)
             self.assertEqual(error.exception.code, "dependency_unavailable")
             self.assertEqual(get_json(stats["primary"])["calls"], 0)
+
+    def test_admin_key_policy_and_immediate_revocation(self):
+        with running() as (client, _, stats):
+            policy = {"name": "sdk-created", "aliases": ["default-chat"], "capacity": 1000, "refill_per_second": 1, "max_output_tokens": 10, "allow_reuse": False}
+            created = admin(client, "POST", "/admin/keys", policy)
+            listed = admin(client, "GET", "/admin/keys")
+            self.assertNotIn(created["key"], json.dumps(listed))
+            with OpenAI(api_key=created["key"], base_url=str(client.base_url), max_retries=0) as limited:
+                self.assertEqual([model.id for model in limited.models.list().data], ["default-chat"])
+                with self.assertRaises(APIStatusError) as error:
+                    limited.chat.completions.create(model="anthropic-chat", messages=MESSAGES)
+                self.assertEqual(error.exception.status_code, 403)
+                with self.assertRaises(BadRequestError):
+                    limited.chat.completions.create(model="default-chat", messages=MESSAGES, max_tokens=11)
+                result = limited.chat.completions.create(model="default-chat", messages=[{"role": "user", "content": "private-prompt-sentinel"}])
+                self.assertEqual(result.usage.total_tokens, 8)
+                admin(client, "DELETE", "/admin/keys/" + created["id"])
+                with self.assertRaises(APIStatusError) as error:
+                    limited.models.list()
+                self.assertEqual(error.exception.status_code, 401)
+            wait_until(lambda: admin(client, "GET", "/admin/status")["persistence"]["written_records"] >= 3)
+            report = admin(client, "GET", "/admin/usage?key_id=" + created["id"])
+            self.assertEqual(sum(row["attempts"] for row in report["attempts"]), 1)
+            self.assertEqual(sum(row["requests"] for row in report["requests"]), 3)
+            self.assertNotIn("private-prompt-sentinel", json.dumps(report))
+            self.assertEqual(get_json(stats["primary"])["calls"], 1)
+
+    def test_sqlite_write_contention_keeps_inference_available(self):
+        with running() as (client, _, stats):
+            lock = sqlite3.connect(stats["database"])
+            try:
+                lock.execute("BEGIN IMMEDIATE")
+                for _ in range(3):
+                    result = client.chat.completions.create(model="default-chat", messages=MESSAGES)
+                    self.assertEqual(result.usage.total_tokens, 8)
+                wait_until(lambda: admin(client, "GET", "/admin/status")["persistence"]["write_failures"] > 0)
+                self.assertTrue(admin(client, "GET", "/admin/status")["sqlite_available"])
+            finally:
+                lock.rollback()
+                lock.close()
+            wait_until(lambda: (lambda s: s["enqueued_records"] == s["written_records"] + s["write_failures"])(admin(client, "GET", "/admin/status")["persistence"]))
+            before = admin(client, "GET", "/admin/status")["persistence"]["written_records"]
+            client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            wait_until(lambda: admin(client, "GET", "/admin/status")["persistence"]["written_records"] > before)
+
+    def test_sqlite_persistence_and_revocation_across_restart(self):
+        with running() as (client, gateway, _):
+            client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            bootstrap = next(key for key in admin(client, "GET", "/admin/keys")["data"] if key["name"] == "bootstrap")
+            admin(client, "DELETE", "/admin/keys/" + bootstrap["id"])
+            gateway.terminate()
+            gateway.wait(timeout=2)
+            self.assertEqual(gateway.returncode, 0)
+            env = dict(os.environ, GATEWAY_API_KEY="sdk-test-key", GATEWAY_ADMIN_TOKEN="sdk-admin-test-token", MOCK_API_KEY="fixture")
+            restarted = subprocess.Popen(gateway.args, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                base = str(client.base_url).rstrip("/").removesuffix("/v1")
+                wait_until(lambda: get_json(base + "/readyz"))
+                with self.assertRaises(APIStatusError) as error:
+                    client.models.list()
+                self.assertEqual(error.exception.status_code, 401)
+                report = admin(client, "GET", "/admin/usage")
+                self.assertEqual(sum(row["attempts"] for row in report["attempts"]), 1)
+                self.assertEqual(sum(row["client_output_tokens"] for row in report["requests"]), 3)
+            finally:
+                stop(restarted)
 
     def test_shutdown_drains_stream(self):
         with running(("-chunk-delay", "50ms")) as (client, gateway, _):

@@ -61,5 +61,9 @@ func run(path string) error {
 		cancel()
 		_ = server.Close()
 	}
+	usageErr := handler.Shutdown(ctx)
+	if err == nil {
+		err = usageErr
+	}
 	return err
 }

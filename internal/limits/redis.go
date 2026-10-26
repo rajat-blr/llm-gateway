@@ -26,12 +26,15 @@ type Denied struct {
 
 func (d *Denied) Error() string { return "token budget exhausted" }
 
+type Policy struct{ Capacity, RefillPerSecond int64 }
+
 type Reservation struct {
+	Policy            Policy
 	Key, ID           string
 	Amount, Remaining int64
 }
 type Store interface {
-	Reserve(context.Context, string, string, int64) (Reservation, error)
+	Reserve(context.Context, string, string, int64, ...Policy) (Reservation, error)
 	Reconcile(context.Context, Reservation, *int64) error
 	Ping(context.Context) error
 	Close() error
@@ -58,14 +61,24 @@ func New(o Options) (*Redis, error) {
 func (s *Redis) keys(key, id string) []string {
 	return []string{fmt.Sprintf("%s:{%s}:bucket", s.options.Prefix, key), fmt.Sprintf("%s:{%s}:reservation:%s", s.options.Prefix, key, id)}
 }
-func (s *Redis) Reserve(ctx context.Context, key, id string, amount int64) (Reservation, error) {
-	r := Reservation{Key: key, ID: id, Amount: amount}
+func (s *Redis) Reserve(ctx context.Context, key, id string, amount int64, policies ...Policy) (Reservation, error) {
+	policy := Policy{s.options.Capacity, s.options.RefillPerSecond}
+	if len(policies) > 1 {
+		return Reservation{}, errors.New("invalid policy")
+	}
+	if len(policies) == 1 {
+		policy = policies[0]
+	}
+	r := Reservation{Key: key, ID: id, Amount: amount, Policy: policy}
+	if policy.Capacity < 1 || policy.Capacity > 1_000_000_000 || policy.RefillPerSecond < 1 || policy.RefillPerSecond > 1_000_000 {
+		return r, errors.New("invalid policy")
+	}
 	if amount < 1 || amount > 1_000_000_000 {
 		return r, errors.New("invalid reservation amount")
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.options.Timeout)
 	defer cancel()
-	v, err := s.reserve.Run(ctx, s.client, s.keys(key, id), s.options.Capacity, s.options.RefillPerSecond, amount, s.options.ReservationTTL.Milliseconds()).Int64Slice()
+	v, err := s.reserve.Run(ctx, s.client, s.keys(key, id), policy.Capacity, policy.RefillPerSecond, amount, s.options.ReservationTTL.Milliseconds()).Int64Slice()
 	if err != nil || len(v) != 3 {
 		return r, ErrUnavailable
 	}
@@ -92,7 +105,11 @@ func (s *Redis) Reconcile(ctx context.Context, r Reservation, actual *int64) err
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.options.Timeout)
 	defer cancel()
-	_, err := s.reconcile.Run(ctx, s.client, s.keys(r.Key, r.ID), n, s.options.Capacity, s.options.RefillPerSecond, s.options.ReservationTTL.Milliseconds()).Int64()
+	policy := r.Policy
+	if policy.Capacity == 0 {
+		policy = Policy{s.options.Capacity, s.options.RefillPerSecond}
+	}
+	_, err := s.reconcile.Run(ctx, s.client, s.keys(r.Key, r.ID), n, policy.Capacity, policy.RefillPerSecond, s.options.ReservationTTL.Milliseconds()).Int64()
 	if err != nil {
 		return ErrUnavailable
 	}

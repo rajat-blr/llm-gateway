@@ -33,7 +33,10 @@ services:
     build: .
     environment:
       GATEWAY_API_KEY: ${GATEWAY_API_KEY:-demo-local-key}
+      GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-demo-local-admin-token}
       MOCK_API_KEY: fixture-only
+    volumes:
+      - gateway-data:/app/data
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -52,3 +55,4 @@ services:
 
 volumes:
   redis-data:
+  gateway-data:

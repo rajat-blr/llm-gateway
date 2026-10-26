@@ -1,6 +1,7 @@
-RESILIENCE FOUNDATION — design and scope
+KEYS AND USAGE FOUNDATION — design and scope
 
-Client -> authentication -> validate every target -> bounded admission
+Client -> SQLite key lookup -> alias/output authorization -> validate targets
+       -> bounded admission
        -> breaker admission -> Redis reservation -> provider attempt
        -> JSON decode / owned SSE reader -> deadline-bounded downstream writes
        -> idempotent reconciliation -> at most one eligible fallback attempt
@@ -8,7 +9,7 @@ Client -> authentication -> validate every target -> bounded admission
 The gateway reuses one HTTP client/transport. Each provider operation uses
 its request context. Redirects are disabled. Upstream errors are reduced to
 fixed messages, and logs contain only request IDs, configured aliases,
-provider names, durations, outcomes, and cache state. Authentication compares a SHA-256 bootstrap key hash; provider credentials are held
+provider names, durations, outcomes, and cache state. Authentication queries SQLite by credential hash; provider credentials are held
 in memory because upstream calls require them.
 
 STREAM OWNERSHIP DECISION
@@ -69,9 +70,9 @@ local Redis failure do not poison provider health.
 Readiness checks Redis; inference fails closed without shared admission.
 Existing streams do not depend on Redis to deliver their remaining output.
 Reconciliation is a bounded best-effort operation even on caller cancellation;
-errors retain conservative debits and emit an explicit loss signal. Bootstrap
-authentication still needs SQLite key lookup for immediate revocation. Attempt
-records are JSON logs until SQLite persistence is implemented.
+errors retain conservative debits and emit an explicit loss signal. SQLite key lookup occurs on every request, so a committed revocation takes
+effect on the next request. Attempts and client outcomes are also queued for
+SQLite persistence, with explicit loss counters.
 
 COALESCING DECISION — pending implementation
 
@@ -83,7 +84,7 @@ Process-local singleflight does not prevent duplicate cross-instance work.
 
 RELEASE GATES STILL OPEN
 
-SQLite keys/attempt persistence and failure/overflow visibility; exact caching and follower cancellation; immutable SIGHUP
+ exact caching and follower cancellation; immutable SIGHUP
 snapshots; metrics and dashboard; repeated resource soak runs; comparable
 load tests, profiles, and a measured optimization. The protocol tests and
 SDK demo establish a foundation, not completion of the full PRD.
@@ -92,3 +93,39 @@ PROTOCOL REFERENCES
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events
 https://platform.claude.com/docs/en/build-with-claude/streaming
 https://redis.io/docs/latest/develop/programmability/eval-intro/
+
+SQLITE OWNERSHIP AND LOSS DECISION
+
+SQLite stores hashes and policies, never plaintext keys or request bodies.
+The environment bootstrap key is imported once by hash; revoked imports are
+not reactivated. New key secrets are CSPRNG-generated and returned only in
+the creation response. Model aliases and maximum output are enforced from
+the queried key metadata. Stable key IDs and pinned capacity/refill policies
+are now used for Redis reservations; policy changes require a new key ID.
+
+One writer connection serializes admin writes and usage transactions. Four
+read connections use WAL with bounded busy/operation timeouts. Authentication
+queries do not share the usage queue. SQLite key-read failure fails inference
+closed; an already admitted stream continues. Usage-only write failure keeps
+serving and exposes accounting loss through logs and /admin/status.
+
+A request owns at most two attempt records. After completion it submits one
+metadata-only snapshot to a bounded worker queue, with no producer goroutine
+or retry queue. One transaction writes the client outcome and its attempts.
+Provider usage belongs to attempts; returned completion usage belongs to the
+client result. Partial/interrupted counters are unknown, never inferred zero.
+Failed persistence drops the whole bundle and increments explicit counters.
+Queue overflow also counts lost requests and attempts without blocking on I/O.
+
+SIGTERM drains HTTP first, then the usage worker under the same shutdown
+context. Expiry cancels outstanding writes, reports undrained work, and returns
+failure. A canceled worker accounts for queued losses before cleanup; process
+exit can prevent final counters from being observed. There is no promise of
+crash-safe delivery for an in-memory queue. Process counters reset; committed
+SQLite rows persist. Admin aggregates are bounded and parameterized, separate
+for clients and attempts so fallback does not double-count client completion.
+
+SQLITE REFERENCES
+https://pkg.go.dev/modernc.org/sqlite
+https://www.sqlite.org/wal.html
+https://www.sqlite.org/pragma.html#pragma_busy_timeout

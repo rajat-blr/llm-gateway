@@ -25,7 +25,7 @@ type memoryStore struct {
 func newMemoryStore() *memoryStore {
 	return &memoryStore{capacity: 1_000_000, balance: 1_000_000, pending: map[string]int64{}}
 }
-func (s *memoryStore) Reserve(ctx context.Context, key, id string, amount int64) (limits.Reservation, error) {
+func (s *memoryStore) Reserve(ctx context.Context, key, id string, amount int64, policy ...limits.Policy) (limits.Reservation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	r := limits.Reservation{Key: key, ID: id, Amount: amount}

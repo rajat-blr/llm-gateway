@@ -27,6 +27,8 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 type Config struct {
 	Listen          string                    `json:"listen"`
+	AdminTokenEnv   string                    `json:"admin_token_env"`
+	SQLite          SQLiteConfig              `json:"sqlite"`
 	KeyEnv          string                    `json:"key_env"`
 	RequestTimeout  Duration                  `json:"request_timeout"`
 	IdleTimeout     Duration                  `json:"idle_timeout"`
@@ -44,6 +46,12 @@ type Config struct {
 	BackoffMax      Duration                  `json:"backoff_max"`
 	Providers       map[string]ProviderConfig `json:"providers"`
 	Routes          map[string]Route          `json:"routes"`
+}
+type SQLiteConfig struct {
+	Path        string   `json:"path"`
+	Timeout     Duration `json:"timeout"`
+	BusyTimeout Duration `json:"busy_timeout"`
+	UsageQueue  int      `json:"usage_queue"`
 }
 type ProviderConfig struct {
 	Kind    string `json:"kind"`
@@ -87,6 +95,9 @@ func LoadConfig(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if c.AdminTokenEnv == "" || c.AdminTokenEnv == c.KeyEnv || c.SQLite.Path == "" || c.SQLite.BusyTimeout < Duration(time.Millisecond) || c.SQLite.Timeout < c.SQLite.BusyTimeout || c.SQLite.Timeout > Duration(time.Second) || c.SQLite.UsageQueue < 1 || c.SQLite.UsageQueue > 10000 {
+		return errors.New("invalid SQLite/admin configuration")
+	}
 	if c.Listen == "" || c.KeyEnv == "" || len(c.Routes) == 0 || len(c.Providers) == 0 {
 		return errors.New("listen, key_env, routes and providers required")
 	}
@@ -118,7 +129,7 @@ func (c Config) Validate() error {
 		return errors.New("invalid retry backoff")
 	}
 	for name, r := range c.Routes {
-		if name == "" || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 || len(r.Targets) < 1 || len(r.Targets) > 2 {
+		if name == "" || len(name) > 128 || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 || len(r.Targets) < 1 || len(r.Targets) > 2 {
 			return fmt.Errorf("invalid route %q", name)
 		}
 		seen := map[string]bool{}

@@ -26,6 +26,9 @@ func testConfig(t *testing.T, url, kind string) Config {
 	}
 	cfg.Providers = map[string]ProviderConfig{"fixture": {Kind: kind, BaseURL: url + "/v1", KeyEnv: "TEST_PROVIDER_KEY"}}
 	cfg.Routes = map[string]Route{"chat": {Targets: []Target{{Provider: "fixture", Model: "upstream-model", AttemptTimeout: cfg.RequestTimeout}}, MaxOutputTokens: 100}}
+	cfg.SQLite.Path = t.TempDir() + "/gateway.db"
+	cfg.AdminTokenEnv = "TEST_ADMIN_TOKEN"
+	t.Setenv("TEST_ADMIN_TOKEN", "admin-test-secret")
 	cfg.KeyEnv = "TEST_GATEWAY_KEY"
 	t.Setenv("TEST_GATEWAY_KEY", "gateway-test-secret")
 	t.Setenv("TEST_PROVIDER_KEY", "provider-test-secret")

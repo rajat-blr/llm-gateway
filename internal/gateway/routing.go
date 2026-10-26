@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/rajat-blr/llm-gateway/internal/limits"
+	"github.com/rajat-blr/llm-gateway/internal/storage"
 )
 
 type attemptResponse struct {
@@ -163,4 +164,21 @@ func (s *Server) waitRetry(ctx context.Context, retryAfter time.Duration) bool {
 	case <-ctx.Done():
 		return false
 	}
+}
+
+func attemptRecord(number int, provider string, start time.Time, outcome string, res limits.Reservation, usage *Usage, accountingErr error) storage.Attempt {
+	a := storage.Attempt{Number: number, Provider: provider, StartedMS: start.UnixMilli(), DurationMS: time.Since(start).Milliseconds(), Outcome: outcome, ReservedTokens: res.Amount, AccountingError: accountingErr != nil}
+	if usage != nil {
+		a.InputTokens = &usage.PromptTokens
+		a.OutputTokens = &usage.CompletionTokens
+	}
+	return a
+}
+func keyAllows(key storage.Key, alias string) bool {
+	for _, allowed := range key.Aliases {
+		if allowed == alias {
+			return true
+		}
+	}
+	return false
 }

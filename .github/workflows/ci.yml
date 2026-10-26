@@ -35,6 +35,8 @@ jobs:
       - run: python scripts/compose_acceptance.py normal
       - run: python scripts/admin_demo.py
       - run: python scripts/reuse_demo.py
+      - run: docker compose --profile monitoring up -d --wait
+      - run: python scripts/monitoring_acceptance.py
       - run: MOCK_FAIL_EVERY=1 docker compose up -d --no-deps --force-recreate --wait mock gateway
       - run: python scripts/compose_acceptance.py fallback
       - run: MOCK_DROP_AFTER=1 docker compose up -d --no-deps --force-recreate --wait mock gateway
@@ -42,4 +44,4 @@ jobs:
       - run: python scripts/admin_demo.py --expect-previous
       - run: python scripts/redis_outage_acceptance.py
       - if: always()
-        run: docker compose logs && docker compose down
+        run: docker compose --profile monitoring logs && docker compose --profile monitoring down

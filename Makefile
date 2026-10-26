@@ -1,7 +1,7 @@
 REDIS_TEST_ADDR ?= 127.0.0.1:6381
 export REDIS_TEST_ADDR
 
-.PHONY: build test test-fuzz check integration demo down
+.PHONY: build test test-fuzz check integration demo monitoring down
 build:
 	mkdir -p bin
 	go build -trimpath -o bin/gateway ./cmd/gateway
@@ -22,5 +22,8 @@ integration: build
 demo:
 	docker compose up --build --wait
 
+monitoring:
+	docker compose --profile monitoring up --build --wait
+
 down:
-	docker compose down
+	docker compose --profile monitoring down

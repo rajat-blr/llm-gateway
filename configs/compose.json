@@ -96,5 +96,10 @@
     "timeout": "500ms",
     "busy_timeout": "100ms",
     "usage_queue": 1024
+  },
+  "management": {
+    "listen": ":9095",
+    "allow_remote": true,
+    "pprof": false
   }
 }

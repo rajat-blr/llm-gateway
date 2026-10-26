@@ -29,6 +29,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 type Config struct {
+	Management      ManagementConfig          `json:"management"`
 	Listen          string                    `json:"listen"`
 	AdminTokenEnv   string                    `json:"admin_token_env"`
 	SQLite          SQLiteConfig              `json:"sqlite"`
@@ -50,6 +51,34 @@ type Config struct {
 	Providers       map[string]ProviderConfig `json:"providers"`
 	Routes          map[string]Route          `json:"routes"`
 }
+type ManagementConfig struct {
+	Listen      string `json:"listen"`
+	AllowRemote bool   `json:"allow_remote"`
+	Pprof       bool   `json:"pprof"`
+}
+
+func (m ManagementConfig) Validate() error {
+	if m.Listen == "" {
+		if m.Pprof || m.AllowRemote {
+			return errors.New("disabled management listener cannot enable profiling or remote access")
+		}
+		return nil
+	}
+	host, port, err := net.SplitHostPort(m.Listen)
+	if err != nil || port == "" {
+		return errors.New("management listen must be host:port")
+	}
+	ip := net.ParseIP(host)
+	local := host == "localhost" || (ip != nil && ip.IsLoopback())
+	if !local && !m.AllowRemote {
+		return errors.New("remote management requires allow_remote")
+	}
+	if m.Pprof && (!local || m.AllowRemote) {
+		return errors.New("profiling requires a loopback-only management listener")
+	}
+	return nil
+}
+
 type SQLiteConfig struct {
 	Path        string   `json:"path"`
 	Timeout     Duration `json:"timeout"`
@@ -105,10 +134,13 @@ func LoadConfig(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if err := c.Management.Validate(); err != nil {
+		return err
+	}
 	if c.AdminTokenEnv == "" || c.AdminTokenEnv == c.KeyEnv || c.SQLite.Path == "" || c.SQLite.BusyTimeout < Duration(time.Millisecond) || c.SQLite.Timeout < c.SQLite.BusyTimeout || c.SQLite.Timeout > Duration(time.Second) || c.SQLite.UsageQueue < 1 || c.SQLite.UsageQueue > 10000 {
 		return errors.New("invalid SQLite/admin configuration")
 	}
-	if c.Listen == "" || c.KeyEnv == "" || len(c.Routes) == 0 || len(c.Routes) > 128 || len(c.Providers) == 0 {
+	if c.Listen == "" || c.KeyEnv == "" || len(c.Routes) == 0 || len(c.Routes) > 128 || len(c.Providers) == 0 || len(c.Providers) > 32 {
 		return errors.New("listen, key_env, routes and providers required")
 	}
 	if c.RequestTimeout <= 0 || c.RequestTimeout > Duration(10*time.Minute) || c.IdleTimeout <= 0 || c.IdleTimeout > c.RequestTimeout || c.WriteTimeout <= 0 || c.WriteTimeout > c.RequestTimeout || c.ShutdownTimeout <= 0 || c.ShutdownTimeout > Duration(time.Minute) {
@@ -119,7 +151,7 @@ func (c Config) Validate() error {
 	}
 	for name, p := range c.Providers {
 		u, err := url.Parse(p.BaseURL)
-		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || p.KeyEnv == "" || (p.Kind != "openai" && p.Kind != "anthropic") {
+		if name == "" || len(name) > 128 || err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || p.KeyEnv == "" || (p.Kind != "openai" && p.Kind != "anthropic") {
 			return fmt.Errorf("invalid provider %q", name)
 		}
 	}

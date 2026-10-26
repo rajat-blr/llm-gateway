@@ -1,0 +1,664 @@
+{
+  "uid": "llm-gateway",
+  "title": "LLM Gateway",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "tags": [
+    "llm-gateway"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Inference requests / second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(llmgw_requests_total[1m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Client latency p50 / p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(llmgw_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(llmgw_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "First text p50 / p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(llmgw_first_text_seconds_bucket[1m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(llmgw_first_text_seconds_bucket[1m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Active work / streams / attempts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llmgw_active_work_slots",
+          "legendFormat": "work slots"
+        },
+        {
+          "refId": "B",
+          "expr": "llmgw_active_streams",
+          "legendFormat": "streams"
+        },
+        {
+          "refId": "C",
+          "expr": "llmgw_active_attempts",
+          "legendFormat": "upstream attempts"
+        },
+        {
+          "refId": "D",
+          "expr": "llmgw_shared_executions",
+          "legendFormat": "shared executions"
+        },
+        {
+          "refId": "E",
+          "expr": "llmgw_shared_waiters",
+          "legendFormat": "shared waiters"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Upstream attempts / second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (provider, outcome) (rate(llmgw_attempts_total[1m]))",
+          "legendFormat": "{{provider}} {{outcome}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(llmgw_fallbacks_total[1m]))",
+          "legendFormat": "fallback"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Cache deliveries / second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(llmgw_cache_hits_total[1m])",
+          "legendFormat": "hit"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(llmgw_cache_misses_total[1m])",
+          "legendFormat": "miss"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(llmgw_cache_coalesced_total[1m])",
+          "legendFormat": "coalesced"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Provider tokens / second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(llmgw_provider_tokens_total[1m]))",
+          "legendFormat": "{{kind}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(llmgw_unknown_usage_total[1m]))",
+          "legendFormat": "unknown usage attempts/s"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Rate limits / breaker skips per second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(llmgw_requests_total{outcome=\"rate_limit_exceeded\"}[1m]))",
+          "legendFormat": "rate limited"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(llmgw_breaker_skips_total[1m]))",
+          "legendFormat": "breaker skipped"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Circuit breakers",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llmgw_breakers_closed",
+          "legendFormat": "closed"
+        },
+        {
+          "refId": "B",
+          "expr": "llmgw_breakers_open",
+          "legendFormat": "open"
+        },
+        {
+          "refId": "C",
+          "expr": "llmgw_breakers_half_open",
+          "legendFormat": "half open"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Usage queue / loss totals",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llmgw_usage_queue_depth",
+          "legendFormat": "queued"
+        },
+        {
+          "refId": "B",
+          "expr": "llmgw_usage_dropped_total",
+          "legendFormat": "dropped records"
+        },
+        {
+          "refId": "C",
+          "expr": "llmgw_usage_write_failures_total",
+          "legendFormat": "write failures"
+        },
+        {
+          "refId": "D",
+          "expr": "llmgw_accounting_errors_total",
+          "legendFormat": "settlement errors"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "CPU cores / goroutines",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(process_cpu_seconds_total[1m])",
+          "legendFormat": "CPU cores"
+        },
+        {
+          "refId": "B",
+          "expr": "go_goroutines",
+          "legendFormat": "goroutines"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "RSS"
+        },
+        {
+          "refId": "B",
+          "expr": "go_memstats_heap_alloc_bytes",
+          "legendFormat": "heap allocated"
+        },
+        {
+          "refId": "C",
+          "expr": "go_memstats_heap_inuse_bytes",
+          "legendFormat": "heap in use"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Routing reloads",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llmgw_config_generation",
+          "legendFormat": "generation"
+        },
+        {
+          "refId": "B",
+          "expr": "llmgw_reload_accepted_total",
+          "legendFormat": "accepted"
+        },
+        {
+          "refId": "C",
+          "expr": "llmgw_reload_rejected_total",
+          "legendFormat": "rejected"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Cache errors / oversized totals",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "gateway-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llmgw_cache_read_errors_total",
+          "legendFormat": "read errors"
+        },
+        {
+          "refId": "B",
+          "expr": "llmgw_cache_write_errors_total",
+          "legendFormat": "write errors"
+        },
+        {
+          "refId": "C",
+          "expr": "llmgw_cache_oversized_total",
+          "legendFormat": "oversized"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}

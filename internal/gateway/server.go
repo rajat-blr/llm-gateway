@@ -28,6 +28,7 @@ import (
 )
 
 type Server struct {
+	metrics                        *metrics
 	cfg                            Config
 	adminHash                      [32]byte
 	identities                     *storage.Store
@@ -122,6 +123,7 @@ func newServer(c Config, limiter limits.Store) (*Server, error) {
 	s.client = &http.Client{Transport: s.transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	s.cache = reuse.New(c.Redis.Address, os.Getenv(c.Redis.PasswordEnv), c.Redis.Prefix, c.Redis.DB, time.Duration(c.Redis.Timeout))
 	s.flights = newFlights(c.MaxConcurrent * 4)
+	s.metrics = newMetrics(s)
 	s.ready.Store(true)
 	return s, nil
 }
@@ -157,6 +159,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.shutdownErr
 }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/v1/chat/completions" {
+		observed := &requestObservation{start: time.Now(), alias: "unresolved", mode: "unknown"}
+		r = r.WithContext(context.WithValue(r.Context(), observationKey{}, observed))
+		captured := &statusWriter{ResponseWriter: w}
+		w = captured
+		defer func() { s.metrics.observeRequest(observed, captured) }()
+	}
 	if serveDemo(w, r) {
 		return
 	}
@@ -247,6 +256,11 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identit
 			record.ClientInput = nil
 			record.ClientOutput = nil
 		}
+		if observed, ok := r.Context().Value(observationKey{}).(*requestObservation); ok {
+			observed.alias = alias
+			observed.outcome = record.Outcome
+			observed.cache = record.CacheState
+		}
 		s.usage.Enqueue(record)
 	}()
 	defer func() {
@@ -266,6 +280,12 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identit
 	if StrictJSON(b, &request) != nil {
 		s.writeError(w, 400, "invalid_request")
 		return
+	}
+	if observed, ok := r.Context().Value(observationKey{}).(*requestObservation); ok {
+		observed.mode = "json"
+		if request.Stream {
+			observed.mode = "stream"
+		}
 	}
 	route, ok := snapshot.config.Routes[request.Model]
 	if !ok || !keyAllows(identity, request.Model) {
@@ -402,6 +422,9 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Str
 			if err := send(Completion{ID: id, Object: "chat.completion.chunk", Created: created, Model: alias, Choices: []Choice{{Index: 0, Delta: event.Delta, FinishReason: event.Finish}}}); err != nil {
 				return onWriteError(err)
 			}
+		}
+		if event.Delta != nil && event.Delta.Content != "" {
+			s.observeFirstText(r, alias, w.Header().Get("X-Gateway-Provider"))
 		}
 		var err error
 		event, err = stream.Next(r.Context())

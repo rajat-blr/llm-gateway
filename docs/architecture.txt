@@ -158,3 +158,34 @@ SQLITE REFERENCES
 https://pkg.go.dev/modernc.org/sqlite
 https://www.sqlite.org/wal.html
 https://www.sqlite.org/pragma.html#pragma_busy_timeout
+
+Observability boundary
+======================
+Each Server owns a private Prometheus registry; tests and multiple gateways
+never share global collectors. Client HTTP observations include authentication
+failures and downstream delivery. The reusable execution engine records each
+actual upstream attempt exactly once, including work whose callers canceled.
+Client latency and first text use a monotonic clock. Stored attempt duration
+has millisecond resolution. Provider tokens require trustworthy final usage;
+unknown usage is counted separately, never guessed from cache deliveries.
+
+Label allowlists are immutable startup aliases/providers, with a fixed other
+bucket. Outcomes, cache states, token kinds and request modes are internal
+finite enums. No upstream model or routing generation is a label. Runtime
+gauges read atomics, channel sizes, worker stats and the current immutable
+routing snapshot. Breakers are read under their own locks without transitions.
+No scrape performs Redis or SQLite network/SQL operations.
+
+Both TCP listeners bind before serving; management bind errors fail startup.
+Metrics and explicitly enabled pprof use a dedicated ServeMux. Inference never
+mounts that mux. Loopback-only profiling and explicit remote management opt-in
+are validated before resources open. In-flight management handlers and profile
+durations are bounded, and shutdown drains both listeners concurrently under
+the same overall deadline used for shared jobs and usage persistence.
+
+The optional Compose monitoring profile uses pinned Prometheus/Grafana images,
+read-only provisioning, host loopback ports, two-hour/256MB Prometheus retention,
+and named volumes. Dashboard panels use the stable gateway-prometheus datasource
+UID. scripts/monitoring_acceptance.py checks target health, actual first-text
+observations, dashboard/datasource provisioning and all panel expressions via
+HTTP APIs. No browser automation or paid provider traffic is required.

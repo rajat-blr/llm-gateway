@@ -5,8 +5,8 @@ A small OpenAI-compatible text gateway with OpenAI and Anthropic adapters.
 MIT licensed. The default demo uses deterministic fixtures; no paid API key
 is needed.
 
-Status: reuse and reload foundation
------------------------------------
+Status: observable gateway foundation
+-------------------------------------
 
 Implemented: strict text request validation, SQLite-backed bearer authentication,
 alias discovery, translated JSON/SSE responses, bounded concurrency and
@@ -14,12 +14,13 @@ stream sizes, cancellation, deadlines, graceful shutdown, shared Redis token
 reservations, priority fallback with at most two attempts, and local circuit
 breakers, SQLite-backed keys with immediate revocation, protected key/usage
 admin endpoints, a bounded usage worker with visible loss counters, opt-in
-exact caching/coalescing, and atomic SIGHUP routing reload.
+exact caching/coalescing, atomic SIGHUP routing reload, a separate Prometheus management endpoint, optional
+local pprof, and a provisioned Grafana dashboard.
 Fixtures and pinned SDK acceptance tests require no paid API key.
 
-The complete v1 release remains in progress. Management metrics, dashboards,
-resource soak evidence, and measured benchmarks/profiling are pending. Readiness checks SQLite key reads, Redis, and validated startup
-state; provider failure does not affect readiness. No performance claims
+The complete v1 release remains in progress. Resource soak evidence and
+measured benchmarks/profiling are pending. Readiness checks SQLite key reads,
+Redis, and validated startup state; provider failure does not affect readiness. No performance claims
 are made.
 
 Run the demo
@@ -44,6 +45,17 @@ Use ``anthropic-chat`` to exercise the Anthropic translation. Both aliases
 return fixture text. The gateway port is published on loopback only. The
 included demo key is public fixture data; set GATEWAY_API_KEY for your own
 local key. Stop the demo with ``make down``.
+
+Start the optional monitoring stack::
+
+    make monitoring
+    python3 scripts/monitoring_acceptance.py
+
+Open http://localhost:3000/d/llm-gateway for the provisioned Grafana dashboard.
+The local demo permits anonymous viewing. Prometheus is at
+http://localhost:9096 and raw gateway metrics at http://localhost:9095/metrics.
+Monitoring images are version-pinned; initial startup downloads them.
+``make down`` stops the entire stack and preserves its named volumes.
 
 Run locally with Go 1.26 or newer, starting Redis first::
 
@@ -418,3 +430,41 @@ creates no attempt rows. Queue loss can leave a client link without its
 execution row; attempt bundles themselves remain atomic, and loss counters
 remain explicit. /admin/status also reports reuse errors, hits/misses, active
 executions, waiter count, and its bound. These are process-lifetime counters.
+
+Metrics and profiling
+---------------------
+
+Metrics are served only by the separate management listener. They cover
+client outcomes/latency, upstream attempts/latency, first text latency,
+provider-reported tokens, unknown usage, fallback, breaker state/skips,
+cache/coalescing, admission occupancy, usage loss, reloads, and Go/process
+resources. Cache deliveries count as client requests; each shared execution
+counts provider attempts/tokens once. TTFT measures the first successfully
+flushed nonempty text delta, excluding role/control events. Histograms use
+seconds and are cumulative across routing reloads.
+
+No key, prompt, concrete model, URL, request ID or revision labels are exported.
+Alias labels come from startup routes; new aliases added by reload use
+``other`` until restart. Provider labels also come from startup configuration.
+This bounds series even after repeated reloads. Metrics reset on process
+restart. Breaker gauges report stored states; a scrape never triggers a probe.
+
+``management.listen`` defaults to loopback in the Go demo. Set it to an empty
+string to disable management. Non-loopback binding requires
+``management.allow_remote: true``; Compose uses this for internal scraping
+and publishes port 9095 on host loopback. The management listener has no
+application authentication, so restrict network access when deploying it.
+
+For local profiling, copy ``configs/demo.json`` and set
+``management.pprof: true`` while retaining a loopback address and
+``allow_remote: false``. Restart with that configuration, then::
+
+    curl -o /tmp/gateway.cpu.prof 'http://localhost:9095/debug/pprof/profile?seconds=10'
+    go tool pprof bin/gateway /tmp/gateway.cpu.prof
+    curl -o /tmp/gateway.heap.prof http://localhost:9095/debug/pprof/heap
+
+Profiling is disabled in Compose and rejected for remote listeners. Management
+accepts GET only, permits four simultaneous handlers, and bounds duration
+parameters to 1..30 seconds. CPU profiling defaults to 10 seconds and trace
+to one. Both listeners share the shutdown deadline; exceeding it forcibly
+closes connections. Management/process configuration changes require restart.

@@ -37,6 +37,7 @@ func unavailableResult() inferenceResult {
 }
 func (s *Server) runRoute(ctx context.Context, snapshot *routingSnapshot, key storage.Key, request Request, id string, initial *limits.Reservation, consume streamConsumer) (result inferenceResult) {
 	route := snapshot.config.Routes[request.Model]
+	defer func() { s.metrics.observeAttempts(request.Model, result.attempts) }()
 	defer func() {
 		if initial != nil {
 			if s.release(*initial) != nil && !result.streamHandled {
@@ -68,6 +69,7 @@ func (s *Server) runRoute(ctx context.Context, snapshot *routingSnapshot, key st
 		breaker := snapshot.breakers[breakerIdentity(provider, s.secrets[target.Provider], target.Model)]
 		ticket, allowed := breaker.acquire()
 		if !allowed {
+			s.metrics.breakerSkips.WithLabelValues(s.metrics.provider(target.Provider)).Inc()
 			if position == 0 && releaseInitial() != nil {
 				return unavailableResult()
 			}
@@ -115,6 +117,10 @@ func (s *Server) runRoute(ctx context.Context, snapshot *routingSnapshot, key st
 			return
 		}
 		attempted++
+		if position > 0 {
+			s.metrics.fallbacks.WithLabelValues(s.metrics.alias(request.Model)).Inc()
+		}
+		s.metrics.activeAttempts.Inc()
 		start := time.Now()
 		attemptCtx, cancel := context.WithTimeout(ctx, time.Duration(target.AttemptTimeout))
 		response := s.execute(attemptCtx, request, target, provider)
@@ -126,6 +132,7 @@ func (s *Server) runRoute(ctx context.Context, snapshot *routingSnapshot, key st
 			}
 			breaker.complete(ticket, classification)
 			accountingErr := s.settle(id, target.Provider, attempted, reservation, nil)
+			s.metrics.activeAttempts.Dec()
 			result.attempts = append(result.attempts, attemptRecord(attempted, target.Provider, start, "upstream_failure", reservation, nil, accountingErr))
 			slog.Info("upstream attempt", "request_id", id, "alias", request.Model, "provider", target.Provider, "attempt", attempted, "duration_ms", time.Since(start).Milliseconds(), "outcome", "failed", "transient", response.retry, "config_generation", snapshot.generation)
 			result.value.Provider = target.Provider
@@ -176,6 +183,7 @@ func (s *Server) runRoute(ctx context.Context, snapshot *routingSnapshot, key st
 			result.value = completionValue{Message: response.message, Finish: response.reason, Usage: usage, Provider: target.Provider}
 		}
 		accountingErr := s.settle(id, target.Provider, attempted, reservation, usage)
+		s.metrics.activeAttempts.Dec()
 		result.attempts = append(result.attempts, attemptRecord(attempted, target.Provider, start, result.outcome, reservation, usage, accountingErr))
 		if response.stream != nil {
 			result.value.Usage = usage

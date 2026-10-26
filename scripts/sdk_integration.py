@@ -57,9 +57,10 @@ def stop(process):
 
 @contextlib.contextmanager
 def running(mock_args=(), overrides=None, fallback=False, require_ready=True, cache_ttl=None):
-    mock_port, gateway_port, secondary_port = free_port(), free_port(), free_port()
+    mock_port, gateway_port, secondary_port, management_port = free_port(), free_port(), free_port(), free_port()
     config = json.loads((ROOT / "configs/demo.json").read_text())
     config["listen"] = f"127.0.0.1:{gateway_port}"
+    config["management"] = {"listen": f"127.0.0.1:{management_port}", "pprof": False, "allow_remote": False}
     for name, provider in config["providers"].items():
         port = secondary_port if name.startswith("backup") else mock_port
         provider["base_url"] = f"http://127.0.0.1:{port}/v1"
@@ -106,7 +107,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True, ca
                 )
                 wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))
                 client = OpenAI(api_key="sdk-test-key", base_url=f"http://127.0.0.1:{gateway_port}/v1", max_retries=0, timeout=5)
-                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"], "config": str(path)}
+                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"], "config": str(path), "management": f"http://127.0.0.1:{management_port}"}
             except Exception:
                 logs.flush()
                 logs.seek(0)
@@ -368,6 +369,28 @@ class SDKAcceptance(unittest.TestCase):
                 self.assertEqual(headers["X-Config-Generation"], "2")
                 self.assertEqual(get_json(stats["primary"])["calls"], 2)
                 self.assertIsNone(gateway.poll())
+
+    def test_management_listener_and_profiling(self):
+        with running() as (client, gateway, stats):
+            client.chat.completions.create(model="default-chat", messages=MESSAGES)
+            with urllib.request.urlopen(stats["management"] + "/metrics", timeout=2) as response:
+                metrics = response.read().decode()
+                self.assertIn("llmgw_requests_total", metrics)
+                self.assertIn("llmgw_attempts_total", metrics)
+                self.assertNotIn("sdk-test-key", metrics)
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(stats["management"] + "/debug/pprof/", timeout=2)
+            self.assertEqual(error.exception.code, 404)
+            error.exception.close()
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(str(client.base_url).replace("/v1/", "/metrics"), timeout=2)
+            self.assertEqual(error.exception.code, 401)
+            error.exception.close()
+            gateway.terminate()
+            gateway.wait(timeout=2)
+            self.assertEqual(gateway.returncode, 0)
+            with self.assertRaises(OSError):
+                urllib.request.urlopen(stats["management"] + "/metrics", timeout=1)
 
     def test_shutdown_drains_stream(self):
         with running(("-chunk-delay", "50ms")) as (client, gateway, _):

@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/rajat-blr/llm-gateway/internal/limits"
+	"github.com/rajat-blr/llm-gateway/internal/reuse"
 	"net/http"
 	"os"
 	"sort"
@@ -27,21 +28,26 @@ import (
 )
 
 type Server struct {
-	cfg              Config
-	adminHash        [32]byte
-	identities       *storage.Store
-	usage            *storage.Worker
-	shutdownOnce     sync.Once
-	shutdownErr      error
-	secrets          map[string]string
-	transport        *http.Transport
-	client           *http.Client
-	slots            chan struct{}
-	streams          chan struct{}
-	ready            atomic.Bool
-	limiter          limits.Store
-	breakers         map[string]*breaker
-	accountingErrors atomic.Uint64
+	cfg                            Config
+	adminHash                      [32]byte
+	identities                     *storage.Store
+	usage                          *storage.Worker
+	shutdownOnce                   sync.Once
+	shutdownErr                    error
+	secrets                        map[string]string
+	transport                      *http.Transport
+	client                         *http.Client
+	slots                          chan struct{}
+	streams                        chan struct{}
+	ready                          atomic.Bool
+	limiter                        limits.Store
+	routing                        atomic.Pointer[routingSnapshot]
+	reloadMu                       sync.Mutex
+	reloadAccepted, reloadRejected atomic.Uint64
+	cache                          reuse.Store
+	flights                        *flightGroup
+	reuseCounters                  reuseCounters
+	accountingErrors               atomic.Uint64
 }
 
 func New(c Config) (*Server, error) {
@@ -90,20 +96,11 @@ func newServer(c Config, limiter limits.Store) (*Server, error) {
 		s.secrets[name] = secret
 	}
 	s.limiter = limiter
-	s.breakers = map[string]*breaker{}
-	for _, route := range c.Routes {
-		seen := map[string]bool{}
-		for _, target := range route.Targets {
-			identity := breakerIdentity(c.Providers[target.Provider], s.secrets[target.Provider], target.Model)
-			if seen[identity] {
-				return nil, errors.New("route repeats the same upstream credential and model")
-			}
-			seen[identity] = true
-			if s.breakers[identity] == nil {
-				s.breakers[identity] = newBreaker(c.Breaker, time.Now)
-			}
-		}
+	snapshot, err := s.buildSnapshot(c, 1, nil)
+	if err != nil {
+		return nil, err
 	}
+	s.routing.Store(snapshot)
 	identities, err := storage.Open(storage.Options{Path: c.SQLite.Path, BusyTimeout: time.Duration(c.SQLite.BusyTimeout), Timeout: time.Duration(c.SQLite.Timeout)})
 	if err != nil {
 		return nil, err
@@ -123,6 +120,8 @@ func newServer(c Config, limiter limits.Store) (*Server, error) {
 	s.usage = storage.NewWorker(identities, c.SQLite.UsageQueue)
 	s.transport = newTransport(c)
 	s.client = &http.Client{Transport: s.transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	s.cache = reuse.New(c.Redis.Address, os.Getenv(c.Redis.PasswordEnv), c.Redis.Prefix, c.Redis.DB, time.Duration(c.Redis.Timeout))
+	s.flights = newFlights(c.MaxConcurrent * 4)
 	s.ready.Store(true)
 	return s, nil
 }
@@ -135,9 +134,18 @@ func (s *Server) Close() {
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.shutdownOnce.Do(func() {
 		s.StopAdmission()
+		flightErr := s.flights.shutdown(ctx)
+		if flightErr != nil {
+			active, _ := s.flights.stats()
+			slog.Warn("shared execution drain deadline exceeded", "active_executions", active)
+		}
 		s.transport.CloseIdleConnections()
+		_ = s.cache.Close()
 		_ = s.limiter.Close()
 		s.shutdownErr = s.usage.Drain(ctx)
+		if s.shutdownErr == nil {
+			s.shutdownErr = flightErr
+		}
 		if s.shutdownErr == nil {
 			s.shutdownErr = s.identities.Close()
 		} else {
@@ -160,8 +168,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
+	snapshot := s.routing.Load()
 	requestStart := time.Now()
 	id := requestID()
+	w.Header().Set("X-Config-Generation", strconv.FormatUint(snapshot.generation, 10))
 	w.Header().Set("X-Request-ID", id)
 	rc := http.NewResponseController(w)
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(s.cfg.RequestTimeout))
@@ -176,7 +186,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/admin/") {
-		s.serveAdmin(w, r)
+		s.serveAdmin(w, r, snapshot)
 		return
 	}
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -202,9 +212,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
-		names := make([]string, 0, len(s.cfg.Routes))
+		names := make([]string, 0, len(snapshot.config.Routes))
 		for _, name := range identity.Aliases {
-			if _, ok := s.cfg.Routes[name]; ok {
+			if _, ok := snapshot.config.Routes[name]; ok {
 				names = append(names, name)
 			}
 		}
@@ -215,22 +225,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, 200, map[string]any{"object": "list", "data": data})
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/chat/completions":
-		s.chat(w, r, id, identity, requestStart)
+		s.chat(w, r, id, identity, requestStart, snapshot)
 	default:
 		s.writeError(w, 404, "invalid_request")
 	}
 }
-func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identity storage.Key, start time.Time) {
+func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identity storage.Key, start time.Time, snapshot *routingSnapshot) {
 	alias := ""
 	provider := ""
 	outcome := "invalid_request"
-	record := storage.Record{ID: id, KeyID: identity.ID, StartedMS: start.UnixMilli()}
+	record := storage.Record{ID: id, KeyID: identity.ID, StartedMS: start.UnixMilli(), CacheState: "BYPASS", ConfigRevision: strconv.FormatUint(snapshot.generation, 10)}
 	defer func() {
 		record.Alias = alias
 		record.Provider = provider
 		record.Outcome = outcome
 		record.DurationMS = time.Since(start).Milliseconds()
-		if errors.Is(r.Context().Err(), context.Canceled) {
+		if outcome != "success" && errors.Is(r.Context().Err(), context.Canceled) {
 			record.Outcome = "canceled"
 		}
 		if outcome != "success" {
@@ -240,7 +250,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identit
 		s.usage.Enqueue(record)
 	}()
 	defer func() {
-		slog.Info("request", "request_id", id, "alias", alias, "provider", provider, "duration_ms", time.Since(start).Milliseconds(), "outcome", outcome, "cache", "BYPASS")
+		slog.Info("request", "request_id", id, "alias", alias, "provider", provider, "duration_ms", time.Since(start).Milliseconds(), "outcome", outcome, "cache", record.CacheState, "config_generation", snapshot.generation, "config_revision", record.ConfigRevision)
 	}()
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
@@ -257,162 +267,62 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, id string, identit
 		s.writeError(w, 400, "invalid_request")
 		return
 	}
-	route, ok := s.cfg.Routes[request.Model]
+	route, ok := snapshot.config.Routes[request.Model]
 	if !ok || !keyAllows(identity, request.Model) {
 		outcome = "model_not_allowed"
 		s.writeError(w, 403, "model_not_allowed")
 		return
 	}
 	alias = request.Model
+	record.ConfigRevision = snapshot.fingerprints[request.Model]
 	route.MaxOutputTokens = min(route.MaxOutputTokens, identity.MaxOutputTokens)
 	for _, target := range route.Targets {
-		if request.Validate(route, s.cfg.Providers[target.Provider]) != nil {
+		if request.Validate(route, snapshot.config.Providers[target.Provider]) != nil {
 			s.writeError(w, 400, "invalid_request")
 			return
 		}
 	}
-	fail := func(status int, code string) { outcome = code; s.writeError(w, status, code) }
-	contextFailure := func() { status, code := upstreamError(r.Context()); fail(status, code) }
+	if !request.Stream && route.Cache.Enabled && identity.AllowReuse {
+		outcome = s.serveReusable(w, r, id, identity, snapshot, request, b, &record)
+		provider = record.Provider
+		return
+	}
 	if err := acquire(r.Context(), s.slots); err != nil {
-		contextFailure()
+		status, code := upstreamError(r.Context())
+		outcome = code
+		s.writeError(w, status, code)
 		return
 	}
 	defer func() { <-s.slots }()
 	if request.Stream {
 		if err := acquire(r.Context(), s.streams); err != nil {
-			contextFailure()
+			status, code := upstreamError(r.Context())
+			outcome = code
+			s.writeError(w, status, code)
 			return
 		}
 		defer func() { <-s.streams }()
 	}
-	attempted := 0
-	lastFailure := false
-	for position, target := range route.Targets {
-		if r.Context().Err() != nil {
-			contextFailure()
-			return
-		}
-		p := s.cfg.Providers[target.Provider]
-		breaker := s.breakers[breakerIdentity(p, s.secrets[target.Provider], target.Model)]
-		ticket, ok := breaker.acquire()
-		if !ok {
-			continue
-		}
-		amount := estimateInput(request, p.Kind) + int64(*request.MaxTokens)
-		reservation, err := s.limiter.Reserve(r.Context(), identity.ID, id+"-"+strconv.Itoa(position), amount, limits.Policy{Capacity: identity.Capacity, RefillPerSecond: identity.RefillPerSecond})
-		if err != nil {
-			breaker.complete(ticket, breakerNeutral)
-			if r.Context().Err() != nil {
-				contextFailure()
-				return
-			}
-			var denied *limits.Denied
-			if errors.As(err, &denied) {
-				w.Header().Set("X-RateLimit-Remaining-Tokens", strconv.FormatInt(max(int64(0), denied.Remaining), 10))
-				if denied.RetryAfter > 0 {
-					w.Header().Set("Retry-After", strconv.FormatInt(int64((denied.RetryAfter+time.Second-1)/time.Second), 10))
-				}
-				fail(429, "rate_limit_exceeded")
-			} else {
-				fail(503, "dependency_unavailable")
-			}
-			return
-		}
-		if r.Context().Err() != nil {
-			breaker.complete(ticket, breakerNeutral)
-			s.release(reservation)
-			contextFailure()
-			return
-		}
-		attempted++
-		provider = target.Provider
-		attemptStart := time.Now()
-		attemptCtx, cancelAttempt := context.WithTimeout(r.Context(), time.Duration(target.AttemptTimeout))
-		result := s.execute(attemptCtx, request, target, p)
-		if result.err != nil {
-			cancelAttempt()
-			classification := breakerNeutral
-			if result.retry && r.Context().Err() == nil {
-				classification = breakerFailure
-			}
-			breaker.complete(ticket, classification)
-			slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", "failed", "transient", result.retry)
-			accountingErr := s.settle(id, provider, attempted, reservation, nil)
-			record.Attempts = append(record.Attempts, attemptRecord(attempted, provider, attemptStart, "upstream_failure", reservation, nil, accountingErr))
-			if r.Context().Err() != nil {
-				contextFailure()
-				return
-			}
-			if accountingErr != nil {
-				fail(503, "dependency_unavailable")
-				return
-			}
-			lastFailure = true
-			if !result.retry || position == len(route.Targets)-1 {
-				contextFailure()
-				return
-			}
-			if !s.waitRetry(r.Context(), result.retryAfter) {
-				contextFailure()
-				return
-			}
-			continue
-		}
-		w.Header().Set("X-Gateway-Provider", provider)
-		w.Header().Set("X-Cache", "BYPASS")
-		w.Header().Set("X-RateLimit-Remaining-Tokens", strconv.FormatInt(max(int64(0), reservation.Remaining), 10))
-		if result.stream != nil {
-			// From this point the response belongs to this provider, including errors.
-			outcome = s.serveStream(w, r, result.stream, result.first, id, alias, request.StreamOptions != nil && request.StreamOptions.IncludeUsage)
-			result.stream.Close()
-			cancelAttempt()
-			classification := breakerNeutral
-			var usage *Usage
-			if result.stream.done {
-				usage = result.stream.usage
-				classification = breakerSuccess
-			} else if r.Context().Err() == nil && transient(result.stream.lastErr) {
-				classification = breakerFailure
-			}
-			breaker.complete(ticket, classification)
-			accountingErr := s.settle(id, provider, attempted, reservation, usage)
-			record.Attempts = append(record.Attempts, attemptRecord(attempted, provider, attemptStart, outcome, reservation, usage, accountingErr))
-			if usage != nil {
-				record.ClientInput = &usage.PromptTokens
-				record.ClientOutput = &usage.CompletionTokens
-			}
-			slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", outcome)
-			return
-		}
-		cancelAttempt()
-		breaker.complete(ticket, breakerSuccess)
-		accountingErr := s.settle(id, provider, attempted, reservation, result.usage)
-		record.Attempts = append(record.Attempts, attemptRecord(attempted, provider, attemptStart, "success", reservation, result.usage, accountingErr))
-		if result.usage != nil {
-			record.ClientInput = &result.usage.PromptTokens
-			record.ClientOutput = &result.usage.CompletionTokens
-		}
-		if accountingErr != nil {
-			w.Header().Del("X-Gateway-Provider")
-			w.Header().Del("X-Cache")
-			fail(503, "dependency_unavailable")
-			return
-		}
-		slog.Info("upstream attempt", "request_id", id, "alias", alias, "provider", provider, "attempt", attempted, "duration_ms", time.Since(attemptStart).Milliseconds(), "outcome", "success")
-		c := Completion{ID: id, Object: "chat.completion", Created: start.Unix(), Model: alias, Choices: []Choice{{Index: 0, Message: &result.message, FinishReason: &result.reason}}, Usage: result.usage}
-		_ = http.NewResponseController(w).SetWriteDeadline(writeDeadline(r.Context(), time.Duration(s.cfg.WriteTimeout)))
-		if writeJSON(w, 200, c) != nil {
-			outcome = "downstream_failure"
-		} else {
-			outcome = "success"
-		}
+	result := s.runRoute(r.Context(), snapshot, identity, request, id, nil, func(stream *Stream, first Event, provider string, remaining int64) string {
+		setInferenceHeaders(w, provider, "BYPASS", remaining)
+		return s.serveStream(w, r, stream, first, id, alias, request.StreamOptions != nil && request.StreamOptions.IncludeUsage)
+	})
+	record.Attempts = result.attempts
+	provider = result.value.Provider
+	outcome = result.outcome
+	if result.value.Usage != nil {
+		record.ClientInput = &result.value.Usage.PromptTokens
+		record.ClientOutput = &result.value.Usage.CompletionTokens
+	}
+	if result.streamHandled {
 		return
 	}
-	if lastFailure {
-		contextFailure()
-	} else {
-		fail(503, "all_providers_unavailable")
+	if result.status != 0 {
+		s.writeInferenceError(w, result)
+		return
 	}
+	setInferenceHeaders(w, provider, "BYPASS", result.remaining)
+	outcome = completionOutcome(r.Context(), s.writeCompletion(w, r, id, request.Model, result.value))
 
 }
 func (s *Server) serveStream(w http.ResponseWriter, r *http.Request, stream *Stream, event Event, id, alias string, includeUsage bool) string {

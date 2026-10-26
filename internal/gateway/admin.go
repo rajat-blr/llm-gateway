@@ -14,7 +14,7 @@ import (
 	"github.com/rajat-blr/llm-gateway/internal/storage"
 )
 
-func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request) {
+func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, snapshot *routingSnapshot) {
 	w.Header().Set("Cache-Control", "no-store")
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	hash := sha256.Sum256([]byte(token))
@@ -24,7 +24,7 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case r.URL.Path == "/admin/status" && r.Method == http.MethodGet:
-		writeJSON(w, 200, map[string]any{"sqlite_available": s.identities.Ping(r.Context()) == nil, "redis_available": s.limiter.Ping(r.Context()) == nil, "persistence": s.usage.Stats(), "accounting_errors": s.accountingErrors.Load()})
+		writeJSON(w, 200, map[string]any{"sqlite_available": s.identities.Ping(r.Context()) == nil, "redis_available": s.limiter.Ping(r.Context()) == nil, "persistence": s.usage.Stats(), "accounting_errors": s.accountingErrors.Load(), "reuse": s.reuseStatus(), "config_generation": snapshot.generation, "reload_accepted": s.reloadAccepted.Load(), "reload_rejected": s.reloadRejected.Load()})
 	case r.URL.Path == "/admin/keys" && r.Method == http.MethodPost:
 		media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || media != "application/json" {
@@ -42,7 +42,7 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, alias := range spec.Aliases {
-			if _, ok := s.cfg.Routes[alias]; !ok {
+			if _, ok := snapshot.config.Routes[alias]; !ok {
 				s.writeError(w, 400, "invalid_request")
 				return
 			}

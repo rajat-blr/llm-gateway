@@ -84,7 +84,7 @@ func TestFallbackEligibilityAndAttemptCap(t *testing.T) {
 				t.Fatalf("status=%d first=%d second=%d", status, fixture.primary.Load(), fixture.secondary.Load())
 			}
 			if !eligible {
-				for _, breaker := range fixture.server.breakers {
+				for _, breaker := range fixture.server.routing.Load().breakers {
 					if breaker.state != "closed" {
 						t.Fatal("nontransient failure opened breaker")
 					}
@@ -340,7 +340,7 @@ func TestClientCancellationDoesNotOpenBreaker(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	for _, breaker := range fixture.server.breakers {
+	for _, breaker := range fixture.server.routing.Load().breakers {
 		breaker.mu.Lock()
 		state := breaker.state
 		breaker.mu.Unlock()

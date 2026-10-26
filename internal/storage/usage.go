@@ -18,13 +18,20 @@ type Attempt struct {
 	AccountingError           bool
 }
 type Record struct {
-	ID, KeyID, Alias, Provider, Outcome string
-	StartedMS, DurationMS               int64
-	ClientInput, ClientOutput           *int
-	Attempts                            []Attempt
+	Kind, ExecutionID, CacheState, ConfigRevision string
+	ID, KeyID, Alias, Provider, Outcome           string
+	StartedMS, DurationMS                         int64
+	ClientInput, ClientOutput                     *int
+	Attempts                                      []Attempt
 }
 
 func (s *Store) WriteUsage(ctx context.Context, r Record) error {
+	if r.Kind == "" {
+		r.Kind = "client"
+	}
+	if r.CacheState == "" {
+		r.CacheState = "BYPASS"
+	}
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	tx, err := s.writer.BeginTx(ctx, nil)
@@ -32,7 +39,7 @@ func (s *Store) WriteUsage(ctx context.Context, r Record) error {
 		return ErrUnavailable
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `INSERT INTO requests(id,key_id,alias,provider,started_ms,duration_ms,outcome,client_input,client_output) VALUES(?,?,?,?,?,?,?,?,?)`, r.ID, r.KeyID, r.Alias, r.Provider, r.StartedMS, r.DurationMS, r.Outcome, r.ClientInput, r.ClientOutput)
+	_, err = tx.ExecContext(ctx, `INSERT INTO requests(id,key_id,alias,provider,started_ms,duration_ms,outcome,client_input,client_output,kind,execution_id,cache_state,config_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, r.ID, r.KeyID, r.Alias, r.Provider, r.StartedMS, r.DurationMS, r.Outcome, r.ClientInput, r.ClientOutput, r.Kind, r.ExecutionID, r.CacheState, r.ConfigRevision)
 	if err != nil {
 		return ErrUnavailable
 	}

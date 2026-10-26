@@ -39,20 +39,33 @@ func run(path string) error {
 	server := &http.Server{Addr: cfg.Listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: time.Duration(cfg.RequestTimeout), IdleTimeout: 30 * time.Second, MaxHeaderBytes: 32 << 10, BaseContext: nil}
 	// All accepted requests inherit a root canceled when the drain budget expires.
 	server.BaseContext = func(_ net.Listener) context.Context { return root }
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	signals := make(chan os.Signal, 8)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer signal.Stop(signals)
 	stopped := make(chan error, 1)
 	go func() { stopped <- server.ListenAndServe() }()
 	slog.Info("gateway listening", "address", cfg.Listen)
-	select {
-	case err := <-stopped:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
+waiting:
+	for {
+		select {
+		case err := <-stopped:
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return err
+		case signal := <-signals:
+			if signal == syscall.SIGHUP {
+				if err := handler.Reload(path); err != nil {
+					slog.Error("routing reload rejected", "error", err.Error())
+				} else {
+					slog.Info("routing reload accepted")
+				}
+				continue
+			}
+			break waiting
 		}
-		return err
-	case <-signals:
 	}
+
 	handler.StopAdmission()
 	ctx, stop := context.WithTimeout(context.Background(), time.Duration(cfg.ShutdownTimeout))
 	defer stop()

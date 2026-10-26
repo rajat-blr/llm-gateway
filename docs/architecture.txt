@@ -1,4 +1,4 @@
-KEYS AND USAGE FOUNDATION — design and scope
+REUSE AND RELOAD FOUNDATION — design and scope
 
 Client -> SQLite key lookup -> alias/output authorization -> validate targets
        -> bounded admission
@@ -74,18 +74,47 @@ errors retain conservative debits and emit an explicit loss signal. SQLite key l
 effect on the next request. Attempts and client outcomes are also queued for
 SQLite persistence, with explicit loss counters.
 
-COALESCING DECISION — pending implementation
+COALESCING AND CACHE DECISION
 
-Reuse must be enabled by both key and route, and only for non-streaming
-calls. Keys must include key identity, alias, route revision, adapter schema,
-and every effective generation input. Shared execution must own a bounded
-context independent of callers; each caller can stop waiting independently.
-Process-local singleflight does not prevent duplicate cross-instance work.
+Both a route flag and the SQLite key permission must allow reuse. Streaming
+bypasses it. A bounded Redis cache stores only complete normalized successful
+responses and usage provenance. Key ID, alias, effective output bound, original
+canonical inputs, adapter version and route/credential fingerprint define the
+identity. Canonicalization preserves message/text order, whitespace, numeric
+spelling, and omitted versus explicit values. Entry size and TTL are bounded.
+Cache failures become misses when mandatory limiter operations remain healthy.
+
+Each caller reserves admission before lookup. Hits/followers refund their
+unused reservation. A shared owner uses the first reservation only for the
+matching primary attempt, releasing it if the breaker skips that target.
+Each fallback attempt still has its own debit and reconciliation. A group
+owns a deadline bounded by the initiator's original deadline, independent of
+caller cancellation. It may continue and populate cache after all callers
+leave. Active jobs own upstream slots; waiters and output writers are bounded.
+The group does not coordinate provider execution across processes.
+
+Shared usage is a distinct synthetic execution bundle. Client rows link to
+it and own zero attempts. The worker atomically persists each execution and
+its attempts. Client summaries filter out execution rows; upstream summaries
+join attempts to their single owner. Cached/client completion tokens cannot
+inflate provider consumption. SQLite schema v2 migrates existing rows to the
+client kind while preserving key identities, revocation state and usage.
+
+RELOAD DECISION
+
+A validated deep copy is atomically published through atomic.Pointer. Each
+request loads it once before authentication and retains it through retries,
+streaming or shared execution. Credentials and process settings remain fixed.
+Changed route behavior requires a higher declared revision. Fingerprints also
+include resolved credential identities to protect restart/rotation boundaries.
+Invalid candidates never replace the last good snapshot. Breaker pointers
+are reused for unchanged upstream identities; old maps live only as long as
+requests pin them. SIGHUP loads the file synchronously and logs acceptance or
+rejection. New aliases still require explicit SQLite key authorization.
 
 RELEASE GATES STILL OPEN
 
- exact caching and follower cancellation; immutable SIGHUP
-snapshots; metrics and dashboard; repeated resource soak runs; comparable
+ management metrics and dashboard; repeated resource soak runs; comparable
 load tests, profiles, and a measured optimization. The protocol tests and
 SDK demo establish a foundation, not completion of the full PRD.
 
@@ -111,7 +140,7 @@ serving and exposes accounting loss through logs and /admin/status.
 
 A request owns at most two attempt records. After completion it submits one
 metadata-only snapshot to a bounded worker queue, with no producer goroutine
-or retry queue. One transaction writes the client outcome and its attempts.
+or retry queue. One transaction writes an owning client/execution bundle and its attempts.
 Provider usage belongs to attempts; returned completion usage belongs to the
 client result. Partial/interrupted counters are unknown, never inferred zero.
 Failed persistence drops the whole bundle and increments explicit counters.

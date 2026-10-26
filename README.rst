@@ -5,20 +5,20 @@ A small OpenAI-compatible text gateway with OpenAI and Anthropic adapters.
 MIT licensed. The default demo uses deterministic fixtures; no paid API key
 is needed.
 
-Status: keys and usage foundation
----------------------------------
+Status: reuse and reload foundation
+-----------------------------------
 
 Implemented: strict text request validation, SQLite-backed bearer authentication,
 alias discovery, translated JSON/SSE responses, bounded concurrency and
 stream sizes, cancellation, deadlines, graceful shutdown, shared Redis token
 reservations, priority fallback with at most two attempts, and local circuit
 breakers, SQLite-backed keys with immediate revocation, protected key/usage
-admin endpoints, and a bounded usage worker with visible loss counters.
+admin endpoints, a bounded usage worker with visible loss counters, opt-in
+exact caching/coalescing, and atomic SIGHUP routing reload.
 Fixtures and pinned SDK acceptance tests require no paid API key.
 
-The complete v1 release remains in progress. Caching/coalescing, SIGHUP
-reload, management metrics, dashboards, soak tests, and measured benchmarks
-are pending. Readiness checks SQLite key reads, Redis, and validated startup
+The complete v1 release remains in progress. Management metrics, dashboards,
+resource soak evidence, and measured benchmarks/profiling are pending. Readiness checks SQLite key reads, Redis, and validated startup
 state; provider failure does not affect readiness. No performance claims
 are made.
 
@@ -102,7 +102,7 @@ use a separate test instance. Test namespaces are isolated from demo data.
 Running go test directly without REDIS_TEST_ADDR skips real-Redis scenarios;
 make check and CI require them.
 
-CI runs the Go checks, 15 SDK scenarios, the admin demo, container failure
+CI runs the Go checks, 19 SDK scenarios, admin/reuse demos, container failure
 scenarios, and a real Redis interruption while streaming. Real-provider
 smoke tests are intentionally outside deterministic tests.
 
@@ -128,10 +128,13 @@ mappings: 400 invalid_request; 401 invalid_api_key; 403 model_not_allowed;
 for Redis/draining; 503 all_providers_unavailable when all breakers reject;
 504 deadline_exceeded. Upstream error bodies and credentials are withheld.
 
-Successful calls expose X-Request-ID, X-Gateway-Provider, and X-Cache=BYPASS.
+Successful calls expose X-Request-ID, X-Gateway-Provider, and X-Cache
+(BYPASS, MISS, HIT, or COALESCED). X-Config-Generation identifies the pinned
+routing snapshot.
 X-RateLimit-Remaining-Tokens reports available tokens at the serving
 attempt's reservation, before final reconciliation; it is an admission
-snapshot, not a final balance. A 429 can include Retry-After. Responses
+snapshot, not a final balance. Hits and followers report their own unused
+admission snapshot; executed calls report the serving attempt's snapshot. A 429 can include Retry-After. Responses
 use a gateway ID and the requested alias, including all stream chunks.
 Usage is sent in a separate empty-choices chunk only when requested and
 known. A failed stream emits a sanitized error data event and closes
@@ -141,7 +144,8 @@ Configuration and bounds
 ------------------------
 
 The JSON config is validated before the listener starts. Routes contain an
-ordered targets array with one or two entries, each specifying provider,
+positive revision and an ordered targets array with one or two entries, each
+specifying provider,
 model, and attempt_timeout; the old single provider/model route format is
 rejected. Each provider has
 kind (openai/anthropic), a base_url including /v1, and a credential key_env.
@@ -262,8 +266,9 @@ Every inference/model-list call queries SQLite; there is no key cache. Missing
 or revoked keys return 401, forbidden aliases return 403, and unavailable key
 storage returns 503. Effective max_tokens is bounded by both key and route.
 Key policies are immutable in this milestone; create a new key and revoke the
-old one to change policy. allow_reuse stores permission for future opt-in
-caching; all routes currently bypass caching.
+old one to change policy. allow_reuse explicitly permits caching and coalescing on routes that also
+enable it. Bootstrap keys default to false, so the browser streaming demo
+and existing callers continue to bypass reuse.
 
 GATEWAY_API_KEY is an optional first-use SQLite import, never an authentication
 bypass. Restart does not resurrect a revoked bootstrap key or overwrite its
@@ -283,8 +288,8 @@ queries. Defaults: 100 ms busy timeout, 500 ms operation timeout, and a
 are bounded and surfaced. Place the database on a local filesystem and keep
 its WAL/SHM files with it; do not move or replace an open database.
 
-Each queued record contains one client outcome and at most two upstream
-attempts, committed in one transaction. Prompts, completions, credentials, and
+Each queued bundle contains a client outcome or a shared-execution outcome
+and at most two owned upstream attempts, committed in one transaction. Prompts, completions, credentials, and
 upstream error bodies are absent from the schema. Client completion usage is
 separate from provider attempt usage. Interrupted or partial usage stays
 unknown; a failed primary still has an attempt record when backup succeeds.
@@ -310,3 +315,106 @@ shared finite deadline. Deadline exhaustion cancels writes, logs undrained
 work, and exits with failure. The queue is memory-only: overflow, write error,
 forced shutdown, and process crash can lose records. Counters reset on restart;
 persisted usage remains. This is explicitly not billing-grade durability.
+
+Exact reuse and coalescing
+--------------------------
+
+Both the key's allow_reuse and the route's cache.enabled must be true. Only
+non-streaming requests qualify. Opt-in explicitly permits replay of a previous
+stochastic completion. Routes in the example config enable reuse with a
+30-second TTL and a 64 KiB entry bound; existing bootstrap keys opt out.
+Enable reuse on a new key and run the temporary-key acceptance demo::
+
+    /tmp/gateway-sdk/bin/python scripts/reuse_demo.py
+
+The demo verifies ten client completions with two upstream attempts, including
+a MISS/HIT pair and a parallel batch. Every caller receives a fresh request
+ID, creation time, and the requested alias. Cached usage describes the replayed
+completion; it is never recorded as new provider consumption.
+
+Cache identity includes key ID, alias, the route/credential fingerprint,
+revision, adapter schema version, effective output bound, and canonical JSON
+for every original supported input. Object field order and JSON formatting
+are normalized. Message order/text/whitespace, omitted versus explicit inputs,
+and numeric spellings remain distinct. Keys never share cached results.
+
+Admission is mandatory before cache lookup. Cache hits and coalesced followers
+release their own unused reservations. The shared owner retains the first
+attempt's reservation; fallback still requires a new per-attempt reservation.
+A skipped primary's unused admission is released before trying the secondary.
+Cache read errors/corruption are misses; write errors skip caching. Required
+limiter failure still rejects inference, including requests that could hit.
+Only complete successful responses are cached. GETRANGE bounds reads even if
+an external writer creates an oversized entry. Entries expire by Redis TTL.
+
+One process-local group owns a bounded execution context independent of the
+initiating caller. Its deadline is the initiating request's original overall
+deadline, including prior admission time. Each caller may stop waiting
+independently. Execution may finish and cache its result after all callers
+leave; this deliberate tradeoff is bounded by that deadline. It can also
+perform an eligible fallback with no remaining waiters. Shutdown drains these
+jobs within the same finite budget as HTTP and usage work.
+
+There is at most max_concurrent shared executions and 4*max_concurrent callers
+joined to them per process. Capacity exhaustion returns 503 without upstream
+work and refunds unused admission where the store remains available. Output
+encoding/writing also takes a concurrency slot. Cache lookup itself currently
+shares upstream admission slots; performance evidence may motivate changing
+that policy. Redis shares completed cache entries across gateway instances
+using the same authoritative key IDs and route definitions. Coalescing is
+local only; concurrent misses on different instances may execute twice.
+SQLite WAL/key metadata is intended for processes on one host/local filesystem.
+
+Cache entries contain plaintext completions and may contain sensitive echoed
+prompt data. Body logging remains disabled. Compose keeps Redis on loopback
+with a 128 MiB noeviction policy so limiter keys cannot be silently evicted.
+Cache TTL/entry bounds limit each entry; Redis memory exhaustion can still
+reject required admissions until space is available. No distributed execution
+lock or exactly-once provider guarantee is provided.
+
+Hot routing reload
+------------------
+
+Edit the active JSON file, increment each changed route's positive revision,
+and signal the process with SIGHUP. Compose mounts configs/ read-only as a
+directory so host edits and atomic file replacement become visible::
+
+    docker compose kill -s HUP gateway
+
+Reload permits alias/target changes, per-target attempt timeouts, route output
+bounds, cache settings, and revisions. Process settings (including global
+limits/timeouts and breaker policy), provider definitions, and credentials
+require restart. Validate the complete candidate before publication. Duplicate
+resolved targets, unknown providers, invalid bounds, decreased revisions, and
+behavior changes without a higher revision are rejected. A checked-in invalid
+example lives at configs/invalid-reload.json and is exercised by tests.
+
+Invalid reloads retain the last good snapshot and readiness. Every request
+pins one immutable snapshot through validation, fallback, streaming, and shared
+execution. Unchanged upstream identities retain their local breaker state.
+No-op reloads may advance the process generation while keeping valid cached
+entries. Changed revisions/fingerprints invalidate affected cache identities.
+Route fingerprints include provider credential digests, so credential rotation
+on restart also separates cached responses. SQL records retain the fingerprint;
+/admin/status exposes generation and reload acceptance/rejection counters.
+
+Aliases added by reload are not automatically granted to existing SQLite
+keys; create a key with the required aliases. Reload never overwrites key
+policies. Retain monotonic revisions when deploying routes. The SQLite v1->v2
+migration adds cache/execution provenance while retaining keys, revocations,
+and prior usage. Older gateway binaries reject schema v2; retain a database
+backup if a binary downgrade is needed.
+
+Shared usage ownership
+----------------------
+
+Each caller has its own client row and outcome. Shared work has one synthetic
+execution row and owns its attempt rows. Clients link to that execution ID;
+cancellation of one caller cannot transfer or duplicate provider consumption.
+Admin client summaries exclude synthetic executions and expose cache_hits and
+coalesced_requests. Attempt summaries include provider work exactly once for
+each execution, including failures with unknown usage. Redis cache replay
+creates no attempt rows. Queue loss can leave a client link without its
+execution row; attempt bundles themselves remain atomic, and loss counters
+remain explicit. /admin/status also reports reuse errors, hits/misses, active
+executions, waiter count, and its bound. These are process-lifetime counters.

@@ -1,5 +1,8 @@
 """Deterministic subprocess/SDK acceptance tests; requires make build first."""
 import contextlib
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import signal
 import json
 import os
 from pathlib import Path
@@ -53,7 +56,7 @@ def stop(process):
 
 
 @contextlib.contextmanager
-def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
+def running(mock_args=(), overrides=None, fallback=False, require_ready=True, cache_ttl=None):
     mock_port, gateway_port, secondary_port = free_port(), free_port(), free_port()
     config = json.loads((ROOT / "configs/demo.json").read_text())
     config["listen"] = f"127.0.0.1:{gateway_port}"
@@ -66,6 +69,9 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
     config["redis"]["address"] = os.environ.get("REDIS_TEST_ADDR", config["redis"]["address"])
     config["redis"]["prefix"] = "sdk:" + uuid.uuid4().hex
     config.update(overrides or {})
+    if cache_ttl is not None:
+        for route in config["routes"].values():
+            route["cache"]["ttl"] = cache_ttl
     # Deadline scenarios intentionally shorten the complete budget.
     def seconds(value):
         return float(value[:-2])/1000 if value.endswith("ms") else float(value[:-1])
@@ -100,7 +106,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True):
                 )
                 wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))
                 client = OpenAI(api_key="sdk-test-key", base_url=f"http://127.0.0.1:{gateway_port}/v1", max_retries=0, timeout=5)
-                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"]}
+                yield client, gateway, {"primary": f"http://127.0.0.1:{mock_port}/stats", "secondary": f"http://127.0.0.1:{secondary_port}/stats", "database": config["sqlite"]["path"], "config": str(path)}
             except Exception:
                 logs.flush()
                 logs.seek(0)
@@ -122,6 +128,16 @@ def admin(client, method, path, payload=None):
     with urllib.request.urlopen(request, timeout=2) as response:
         content = response.read()
         return json.loads(content) if content else {}
+
+
+def reusable_client(client):
+    created = admin(client, "POST", "/admin/keys", {"name": "sdk-reuse", "aliases": ["default-chat"], "capacity": 10000, "refill_per_second": 1, "max_output_tokens": 100, "allow_reuse": True})
+    return created, OpenAI(base_url=str(client.base_url), api_key=created["key"], max_retries=0, timeout=5)
+
+
+def raw_completion(client):
+    response = client.chat.completions.with_raw_response.create(model="default-chat", messages=MESSAGES, max_tokens=32)
+    return response.headers, response.parse()
 
 
 MESSAGES = [{"role": "user", "content": "Hello"}]
@@ -283,6 +299,75 @@ class SDKAcceptance(unittest.TestCase):
                 self.assertEqual(sum(row["client_output_tokens"] for row in report["requests"]), 3)
             finally:
                 stop(restarted)
+
+    def test_exact_cache_and_attempt_accounting(self):
+        with running() as (client, _, stats):
+            key, reuse = reusable_client(client)
+            with reuse:
+                first_headers, first = raw_completion(reuse)
+                second_headers, second = raw_completion(reuse)
+                self.assertEqual(first_headers["X-Cache"], "MISS")
+                self.assertEqual(second_headers["X-Cache"], "HIT")
+                self.assertNotEqual(first.id, second.id)
+                self.assertEqual(second.usage.total_tokens, 8)
+            wait_until(lambda: admin(client, "GET", "/admin/status")["persistence"]["written_records"] == 3)
+            report = admin(client, "GET", "/admin/usage?key_id=" + key["id"])
+            self.assertEqual(sum(row["requests"] for row in report["requests"]), 2)
+            self.assertEqual(sum(row["cache_hits"] for row in report["requests"]), 1)
+            self.assertEqual(sum(row["attempts"] for row in report["attempts"]), 1)
+            self.assertEqual(get_json(stats["primary"])["calls"], 1)
+
+    def test_overlapping_requests_coalesce(self):
+        with running(("-first-delay", "200ms")) as (client, _, stats):
+            _, reuse = reusable_client(client)
+            barrier = threading.Barrier(8)
+            def request(_):
+                barrier.wait(timeout=5)
+                headers, completion = raw_completion(reuse)
+                return headers["X-Cache"], completion.id
+            with reuse, ThreadPoolExecutor(max_workers=8) as executor:
+                results = list(executor.map(request, range(8)))
+            self.assertEqual(get_json(stats["primary"])["calls"], 1)
+            self.assertEqual(sum(state == "MISS" for state, _ in results), 1)
+            self.assertEqual(len({identity for _, identity in results}), 8)
+            self.assertTrue(any(state == "COALESCED" for state, _ in results))
+            self.assertEqual(admin(client, "GET", "/admin/status")["reuse"]["active_executions"], 0)
+
+    def test_cache_ttl_expiry(self):
+        with running(cache_ttl="100ms") as (client, _, stats):
+            _, reuse = reusable_client(client)
+            with reuse:
+                self.assertEqual(raw_completion(reuse)[0]["X-Cache"], "MISS")
+                time.sleep(0.15)
+                self.assertEqual(raw_completion(reuse)[0]["X-Cache"], "MISS")
+            self.assertEqual(get_json(stats["primary"])["calls"], 2)
+
+    def test_sighup_rejects_invalid_and_publishes_revision(self):
+        with running() as (client, gateway, stats):
+            _, reuse = reusable_client(client)
+            with reuse:
+                raw_completion(reuse)
+                self.assertEqual(raw_completion(reuse)[0]["X-Cache"], "HIT")
+                path = Path(stats["config"])
+                original = json.loads(path.read_text())
+                invalid = json.loads(path.read_text())
+                invalid["routes"]["default-chat"]["targets"][0]["provider"] = "missing"
+                path.write_text(json.dumps(invalid))
+                gateway.send_signal(signal.SIGHUP)
+                wait_until(lambda: admin(client, "GET", "/admin/status")["reload_rejected"] == 1)
+                headers, _ = raw_completion(reuse)
+                self.assertEqual(headers["X-Cache"], "HIT")
+                self.assertEqual(headers["X-Config-Generation"], "1")
+                original["routes"]["default-chat"]["revision"] += 1
+                original["routes"]["default-chat"]["targets"][0]["model"] = "mock-new-model"
+                path.write_text(json.dumps(original))
+                gateway.send_signal(signal.SIGHUP)
+                wait_until(lambda: admin(client, "GET", "/admin/status")["config_generation"] == 2)
+                headers, _ = raw_completion(reuse)
+                self.assertEqual(headers["X-Cache"], "MISS")
+                self.assertEqual(headers["X-Config-Generation"], "2")
+                self.assertEqual(get_json(stats["primary"])["calls"], 2)
+                self.assertIsNone(gateway.poll())
 
     def test_shutdown_drains_stream(self):
         with running(("-chunk-delay", "50ms")) as (client, gateway, _):

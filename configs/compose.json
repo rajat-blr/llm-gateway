@@ -41,7 +41,13 @@
           "model": "mock-text",
           "attempt_timeout": "25s"
         }
-      ]
+      ],
+      "revision": 1,
+      "cache": {
+        "enabled": true,
+        "ttl": "30s",
+        "max_entry_bytes": 65536
+      }
     },
     "anthropic-chat": {
       "max_output_tokens": 1024,
@@ -56,7 +62,13 @@
           "model": "mock-text",
           "attempt_timeout": "25s"
         }
-      ]
+      ],
+      "revision": 1,
+      "cache": {
+        "enabled": true,
+        "ttl": "30s",
+        "max_entry_bytes": 65536
+      }
     }
   },
   "redis": {

@@ -105,7 +105,7 @@ func Open(o Options) (*Store, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), o.Timeout)
 	defer cancel()
 	var version int
-	if err = writer.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version > 1 {
+	if err = writer.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version > 2 {
 		return nil, ErrUnavailable
 	}
 	var mode string
@@ -117,10 +117,22 @@ func Open(o Options) (*Store, error) {
 		return nil, ErrUnavailable
 	}
 	defer tx.Rollback()
+	if version == 1 {
+		for _, statement := range []string{
+			"ALTER TABLE requests ADD COLUMN kind TEXT NOT NULL DEFAULT 'client'",
+			"ALTER TABLE requests ADD COLUMN execution_id TEXT NOT NULL DEFAULT ''",
+			"ALTER TABLE requests ADD COLUMN cache_state TEXT NOT NULL DEFAULT 'BYPASS'",
+			"ALTER TABLE requests ADD COLUMN config_revision TEXT NOT NULL DEFAULT ''",
+		} {
+			if _, err = tx.ExecContext(ctx, statement); err != nil {
+				return nil, ErrUnavailable
+			}
+		}
+	}
 	if _, err = tx.ExecContext(ctx, schema); err != nil {
 		return nil, ErrUnavailable
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=1"); err != nil {
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=2"); err != nil {
 		return nil, ErrUnavailable
 	}
 	if err = tx.Commit(); err != nil {

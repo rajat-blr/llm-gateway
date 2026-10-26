@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,8 @@ import (
 )
 
 type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) { return json.Marshal(time.Duration(d).String()) }
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var s string
@@ -75,9 +78,16 @@ type Target struct {
 	Model          string   `json:"model"`
 	AttemptTimeout Duration `json:"attempt_timeout"`
 }
+type CachePolicy struct {
+	Enabled       bool     `json:"enabled"`
+	TTL           Duration `json:"ttl"`
+	MaxEntryBytes int      `json:"max_entry_bytes"`
+}
 type Route struct {
-	Targets         []Target `json:"targets"`
-	MaxOutputTokens int      `json:"max_output_tokens"`
+	Revision        int64       `json:"revision"`
+	Cache           CachePolicy `json:"cache"`
+	Targets         []Target    `json:"targets"`
+	MaxOutputTokens int         `json:"max_output_tokens"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -98,7 +108,7 @@ func (c Config) Validate() error {
 	if c.AdminTokenEnv == "" || c.AdminTokenEnv == c.KeyEnv || c.SQLite.Path == "" || c.SQLite.BusyTimeout < Duration(time.Millisecond) || c.SQLite.Timeout < c.SQLite.BusyTimeout || c.SQLite.Timeout > Duration(time.Second) || c.SQLite.UsageQueue < 1 || c.SQLite.UsageQueue > 10000 {
 		return errors.New("invalid SQLite/admin configuration")
 	}
-	if c.Listen == "" || c.KeyEnv == "" || len(c.Routes) == 0 || len(c.Providers) == 0 {
+	if c.Listen == "" || c.KeyEnv == "" || len(c.Routes) == 0 || len(c.Routes) > 128 || len(c.Providers) == 0 {
 		return errors.New("listen, key_env, routes and providers required")
 	}
 	if c.RequestTimeout <= 0 || c.RequestTimeout > Duration(10*time.Minute) || c.IdleTimeout <= 0 || c.IdleTimeout > c.RequestTimeout || c.WriteTimeout <= 0 || c.WriteTimeout > c.RequestTimeout || c.ShutdownTimeout <= 0 || c.ShutdownTimeout > Duration(time.Minute) {
@@ -129,9 +139,13 @@ func (c Config) Validate() error {
 		return errors.New("invalid retry backoff")
 	}
 	for name, r := range c.Routes {
-		if name == "" || len(name) > 128 || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 || len(r.Targets) < 1 || len(r.Targets) > 2 {
+		if r.Revision < 1 || name == "" || len(name) > 128 || r.MaxOutputTokens < 1 || r.MaxOutputTokens > 32768 || len(r.Targets) < 1 || len(r.Targets) > 2 {
 			return fmt.Errorf("invalid route %q", name)
 		}
+		if (r.Cache.Enabled || r.Cache.TTL != 0 || r.Cache.MaxEntryBytes != 0) && (r.Cache.TTL < Duration(time.Millisecond) || r.Cache.TTL > Duration(time.Hour) || r.Cache.MaxEntryBytes < 128 || r.Cache.MaxEntryBytes > 1<<20 || int64(r.Cache.MaxEntryBytes) > c.MaxOutputBytes) {
+			return fmt.Errorf("invalid cache policy for %q", name)
+		}
+
 		seen := map[string]bool{}
 		for _, target := range r.Targets {
 			p, ok := c.Providers[target.Provider]

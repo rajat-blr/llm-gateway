@@ -3,9 +3,11 @@ package storage
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -197,5 +199,59 @@ func TestClosedStoreIsUnavailableNotInvalidKey(t *testing.T) {
 	}
 	if s.Ping(context.Background()) != ErrUnavailable {
 		t.Fatal("closed DB was ready")
+	}
+}
+
+func TestVersionOneMigrationPreservesKeysAndUsage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This is the released v1 request shape. Other tables are unchanged.
+	legacy := `CREATE TABLE requests(id TEXT PRIMARY KEY,key_id TEXT NOT NULL,alias TEXT NOT NULL,provider TEXT NOT NULL,started_ms INTEGER NOT NULL,duration_ms INTEGER NOT NULL,outcome TEXT NOT NULL,client_input INTEGER,client_output INTEGER);`
+	if _, err = db.Exec(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO requests VALUES('old','old-key','chat','primary',1000,10,'success',5,3);PRAGMA user_version=1;`); err != nil {
+		t.Fatal(err)
+	}
+	// Supply released key/attempt tables from the stable schema around requests.
+	start := strings.Index(schema, "CREATE TABLE IF NOT EXISTS requests")
+	end := strings.Index(schema, "CREATE TABLE IF NOT EXISTS attempts")
+	if _, err = db.Exec(schema[:start] + schema[end:]); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256([]byte("revoked-legacy-secret"))
+	if _, err = db.Exec(`INSERT INTO gateway_keys VALUES('old-key',?,'legacy','fingerprint','["chat"]',100,1,10,0,1000,1001)`, hash[:]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO attempts VALUES('old',1,'primary',1000,10,'success',100,5,3,0)`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	store, err := Open(Options{Path: path, BusyTimeout: time.Millisecond * 50, Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	var version int
+	store.reader.QueryRow("PRAGMA user_version").Scan(&version)
+	if version != 2 {
+		t.Fatal("migration version not committed")
+	}
+	if store.EnsureBootstrap(context.Background(), "revoked-legacy-secret", spec()) != nil {
+		t.Fatal("bootstrap migration failed")
+	}
+	if _, err = store.Authenticate(context.Background(), "revoked-legacy-secret"); err != ErrInvalidKey {
+		t.Fatal("migration resurrected revoked key")
+	}
+	report, err := store.Usage(context.Background(), UsageQuery{FromMS: 0, ToMS: 2000, Limit: 10})
+	if err != nil || len(report.Requests) != 1 || len(report.Attempts) != 1 || report.Requests[0].ClientOutput != 3 {
+		t.Fatalf("migration lost historical usage: %+v: %v", report, err)
+	}
+	keys, err := store.ListKeys(context.Background(), 10, 0)
+	if err != nil || len(keys) != 1 || keys[0].ID != "old-key" || keys[0].RevokedMS == nil {
+		t.Fatal("migration changed key identity/metadata")
 	}
 }

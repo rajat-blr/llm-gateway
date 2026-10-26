@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS requests (
  started_ms INTEGER NOT NULL,
  duration_ms INTEGER NOT NULL,
  outcome TEXT NOT NULL,
+ kind TEXT NOT NULL DEFAULT 'client' CHECK(kind IN ('client','execution')),
+ execution_id TEXT NOT NULL DEFAULT '',
+ cache_state TEXT NOT NULL DEFAULT 'BYPASS',
+ config_revision TEXT NOT NULL DEFAULT '',
  client_input INTEGER,
  client_output INTEGER
 );

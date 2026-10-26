@@ -11,6 +11,8 @@ type UsageQuery struct {
 	Limit                  int
 }
 type RequestSummary struct {
+	CacheHits    int64  `json:"cache_hits"`
+	Coalesced    int64  `json:"coalesced_requests"`
 	HourMS       int64  `json:"hour_ms"`
 	KeyID        string `json:"key_id"`
 	Alias        string `json:"alias"`
@@ -52,13 +54,13 @@ func (s *Store) Usage(ctx context.Context, q UsageQuery) (UsageReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	params := []any{q.FromMS, q.ToMS, q.KeyID, q.KeyID, q.Alias, q.Alias, q.Provider, q.Provider, q.Limit + 1}
-	rows, err := s.reader.QueryContext(ctx, `SELECT started_ms/3600000*3600000,key_id,alias,provider,outcome,COUNT(*),SUM(client_input IS NOT NULL),COALESCE(SUM(client_input),0),COALESCE(SUM(client_output),0),SUM(duration_ms) FROM requests WHERE started_ms>=? AND started_ms<? AND (?='' OR key_id=?) AND (?='' OR alias=?) AND (?='' OR provider=?) GROUP BY 1,2,3,4,5 ORDER BY 1,2,3,4,5 LIMIT ?`, params...)
+	rows, err := s.reader.QueryContext(ctx, `SELECT started_ms/3600000*3600000,key_id,alias,provider,outcome,COUNT(*),SUM(client_input IS NOT NULL),COALESCE(SUM(client_input),0),COALESCE(SUM(client_output),0),SUM(duration_ms),SUM(cache_state='HIT'),SUM(cache_state='COALESCED') FROM requests WHERE kind='client' AND started_ms>=? AND started_ms<? AND (?='' OR key_id=?) AND (?='' OR alias=?) AND (?='' OR provider=?) GROUP BY 1,2,3,4,5 ORDER BY 1,2,3,4,5 LIMIT ?`, params...)
 	if err != nil {
 		return report, ErrUnavailable
 	}
 	for rows.Next() {
 		var r RequestSummary
-		if rows.Scan(&r.HourMS, &r.KeyID, &r.Alias, &r.Provider, &r.Outcome, &r.Requests, &r.KnownUsage, &r.ClientInput, &r.ClientOutput, &r.DurationMS) != nil {
+		if rows.Scan(&r.HourMS, &r.KeyID, &r.Alias, &r.Provider, &r.Outcome, &r.Requests, &r.KnownUsage, &r.ClientInput, &r.ClientOutput, &r.DurationMS, &r.CacheHits, &r.Coalesced) != nil {
 			rows.Close()
 			return report, ErrUnavailable
 		}

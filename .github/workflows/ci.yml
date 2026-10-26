@@ -34,6 +34,7 @@ jobs:
       - run: python examples/chat.py
       - run: python scripts/compose_acceptance.py normal
       - run: python scripts/admin_demo.py
+      - run: python scripts/reuse_demo.py
       - run: MOCK_FAIL_EVERY=1 docker compose up -d --no-deps --force-recreate --wait mock gateway
       - run: python scripts/compose_acceptance.py fallback
       - run: MOCK_DROP_AFTER=1 docker compose up -d --no-deps --force-recreate --wait mock gateway

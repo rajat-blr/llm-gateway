@@ -6,7 +6,7 @@ MIT licensed. The default demo uses deterministic fixtures; no paid API key
 is needed.
 
 Status: keys and usage foundation
---------------------------------
+---------------------------------
 
 Implemented: strict text request validation, SQLite-backed bearer authentication,
 alias discovery, translated JSON/SSE responses, bounded concurrency and

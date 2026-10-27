@@ -32,7 +32,15 @@ Requires Docker Desktop or Docker Engine with Compose::
     make demo
 
 Open http://localhost:8080 in your browser and select Run stream. The page
-includes the public local demo key and can exercise either adapter. It
+includes the public local demo key and eight selectable examples: both
+streaming adapters, JSON completion with output controls, system instructions,
+multi-turn chat, alias discovery, unsupported tools (expected HTTP 400), and an
+unavailable alias (expected HTTP 403). Selecting an example loads its request;
+Run sends it. Expand Request JSON to inspect the body without exposing your key.
+The response shows HTTP status, provider, cache state, usage and timing; JSON
+completions also expose their full response. Changing examples clears old output.
+Fixtures always return the same greeting, including for conversation/system
+examples. Model discovery returns the aliases allowed for your key. The page
 does not save keys. If you set a custom GATEWAY_API_KEY, enter it in the form.
 
 Or call the API directly::
@@ -485,3 +493,16 @@ Results go to ``tmp/baseline.json``. For a short harness check::
 
 See ``benchmarks/README.rst`` for the method, recorded raw results and limits.
 The local fixture measurements do not establish production capacity.
+
+Demo client checks
+-------------------
+
+With Node.js 24 installed::
+
+    make demo-check
+    DEMO_BASE_URL=http://localhost:8080 node --test scripts/demo_test.cjs
+
+The first command checks request construction, streaming boundaries, expected
+errors and cancellation. The second also runs all eight examples against the
+local demo. These checks execute the shipped client with a DOM substitute;
+they do not provide browser layout coverage. CI runs both commands.

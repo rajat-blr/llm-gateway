@@ -26,6 +26,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/demo_test.cjs
       - run: test -z "$(gofmt -l cmd internal)"
       - run: make check
       - run: python -m pip install -r examples/requirements.txt
@@ -36,6 +40,7 @@ jobs:
           name: baseline-smoke
           path: tmp/baseline.json
       - run: docker compose up --build --wait
+      - run: DEMO_BASE_URL=http://localhost:8080 node --test scripts/demo_test.cjs
       - run: python examples/chat.py
       - run: python scripts/compose_acceptance.py normal
       - run: python scripts/admin_demo.py

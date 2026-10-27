@@ -43,7 +43,7 @@ requests/second; that single profiled pair does not demonstrate an end-to-end
 speedup. Post-GC sampled live heap can vary independently of allocation rate.
 See controlled-before.json / controlled-after.json for complete measurements.
 
-Raw CPU, live-heap and allocation profiles are checked in as *.pprof, with
+Raw CPU, live-heap and allocation profiles are checked in as ``*.pprof``, with
 human-readable top tables. They contain stack samples, not heap object contents.
 Use the matching original binary (source ce9ad56) for original symbolization;
 replacement source is the strict-JSON change in commit 412667e. Build IDs/hashes

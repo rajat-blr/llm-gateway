@@ -245,6 +245,9 @@ func TestRequestAndEventLimits(t *testing.T) {
 	}
 	resp.Body.Close()
 	cfg.MaxBodyBytes = 32
+	// The first server may still be writing its usage record. Body-limit
+	// validation is independent of SQLite multi-writer contention.
+	cfg.SQLite.Path = t.TempDir() + "/body-limit.db"
 	gateway = testGateway(t, cfg)
 	resp = call(t, gateway.URL, input)
 	if resp.StatusCode != 400 {

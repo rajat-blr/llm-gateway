@@ -8,6 +8,8 @@ import os
 import urllib.error
 import urllib.request
 import subprocess
+from openai import APIError
+from sdk_integration import running, get_json, wait_until
 
 ROOT='http://localhost:8080'
 TOKEN=os.getenv('GATEWAY_ADMIN_TOKEN','demo-local-admin-token')
@@ -33,6 +35,29 @@ def main():
                 assert json.load(error)['error']['code']=='rate_limit_exceeded'
     finally:admin('DELETE','/admin/keys/'+key['id'])
     print('Reviewer token-budget rejection passed. Dashboard: http://localhost:3000/d/llm-gateway')
-    print('For fallback/drop/disconnect and real Redis interruption run the resilience steps in README.rst; benchmarks/profiles contain the recorded evidence.')
+    messages=[{'role':'user','content':'reviewer failure scenario'}]
+    with running(('-fail-every','1'),fallback=True) as (client,_,stats):
+        response=client.chat.completions.with_raw_response.create(model='default-chat',messages=messages,max_tokens=16)
+        response.parse()
+        assert response.headers['X-Gateway-Provider']=='backup-anthropic'
+        assert get_json(stats['primary'])['calls']==get_json(stats['secondary'])['calls']==1
+    print('Isolated pre-commit failure selected backup-anthropic within two attempts.')
+    with running(('-chunks','50','-chunk-delay','100ms')) as (client,_,stats):
+        with client.chat.completions.create(model='default-chat',messages=messages,stream=True) as stream:
+            for event in stream:
+                if event.choices and event.choices[0].delta.content:break
+        wait_until(lambda:get_json(stats['primary'])['canceled']==1,timeout=1)
+    print('Isolated client disconnect canceled upstream within one second.')
+    with running(('-drop-after','1'),fallback=True) as (client,_,stats):
+        partial=''
+        try:
+            with client.chat.completions.create(model='default-chat',messages=messages,stream=True) as stream:
+                for event in stream:
+                    if event.choices:partial+=event.choices[0].delta.content or ''
+        except APIError:pass
+        else:raise AssertionError('dropped stream succeeded')
+        assert partial and get_json(stats['primary'])['calls']==1 and get_json(stats['secondary'])['calls']==0
+    print('Isolated mid-stream drop surfaced an SDK error without fallback.')
+    print('Review benchmarks/profiles/investigation.rst and benchmarks/extended-method.rst for measured results and limits.')
 
 if __name__=='__main__':main()

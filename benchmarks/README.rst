@@ -56,7 +56,7 @@ a per-request overhead percentile. Follow-up optimization requires profiles
 and the same workload before/after, rather than conclusions from a single run.
 
 Recorded developer-host run (October 26, 2026)
----------------------------------------------
+----------------------------------------------
 
 Raw data: baseline-2026-10-26-arm64.json, gateway revision 8bb5f1a. Apple M4,
 10 logical CPUs, 16GiB memory, macOS 26.6.2, Go 1.27.3, Python 3.14.7 and
@@ -90,5 +90,25 @@ The large spread in direct concurrency-100 runs, and overlapping or reversed
 rankings, show why these measurements cannot establish an overhead or speedup
 claim. Maximum measured mean CPU was about 2.03 gateway cores, 0.44 fixture
 cores and 0.71 generator cores. These do not rule out scheduling, Docker/Redis,
-I/O or generator bottlenecks. The next performance step is profiling under a
-controlled workload and measuring a specific change before and after.
+I/O or generator bottlenecks. Those baseline variations motivated controlled
+profiling and the specific before/after experiment recorded below.
+
+Extended release evidence (October 27, 2026)
+---------------------------------------------
+
+The original baseline measurements above remain unchanged. The completed release work adds:
+
+* extended-method.rst and extended-load-2026-10-27.json: larger inputs/outputs,
+  concurrency through 500, cache/fallback/SQLite measurements and observed limits.
+* release-faults-2026-10-27.json: isolated stream drops and 100-way coalescing.
+* profiles/investigation.rst: checked-in CPU/heap/allocation profiles and a
+  differential-tested strict-JSON optimization with raw before/after repetitions.
+* resource-soak.rst and resource-soak-2026-10-27.json: three sustained 120-second
+  cancellation runs and ten unread large-response rounds with finite write budgets.
+* experiments/: interrupted fault-load and zero-delay overload evidence, retained
+  to make generator saturation and documented usage loss visible.
+
+Run make release-evidence with the SDK Python environment active to repeat the
+extended matrix and soaks. --only selects individual release_load.py scenarios.
+Source/configuration, raw samples, warmup errors and measurement limits are
+part of the result; no general gateway speedup or production capacity is claimed.

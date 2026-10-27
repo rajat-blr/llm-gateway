@@ -67,7 +67,7 @@ completion tickets prevent old requests from closing a newly open breaker.
 At most one half-open probe executes. Client cancellation, validation, and
 local Redis failure do not poison provider health.
 
-Readiness checks Redis; inference fails closed without shared admission.
+Readiness checks Redis and SQLite key reads; inference fails closed without shared admission.
 Existing streams do not depend on Redis to deliver their remaining output.
 Reconciliation is a bounded best-effort operation even on caller cancellation;
 errors retain conservative debits and emit an explicit loss signal. SQLite key lookup occurs on every request, so a committed revocation takes
@@ -112,11 +112,16 @@ are reused for unchanged upstream identities; old maps live only as long as
 requests pin them. SIGHUP loads the file synchronously and logs acceptance or
 rejection. New aliases still require explicit SQLite key authorization.
 
-RELEASE GATES STILL OPEN
+RELEASE ACCEPTANCE EVIDENCE
 
- management metrics and dashboard; repeated resource soak runs; comparable
-load tests, profiles, and a measured optimization. The protocol tests and
-SDK demo establish a foundation, not completion of the full PRD.
+The fixture-backed release gate is mapped in docs/release-acceptance.rst.
+Metrics/dashboard, direct/gateway load repetitions through concurrency 500,
+large/cache/failure/SQLite-contention cases, CPU/heap profiles, a measured
+strict-JSON optimization and three 120-second resource soaks are recorded in
+benchmarks/. Raw errors/loss and interrupted experiments remain visible.
+Optional real-provider execution needs local credentials and compatible model
+names; README.rst records that status. These finite local measurements do not
+establish production capacity or absence of all possible leaks.
 
 PROTOCOL REFERENCES
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events

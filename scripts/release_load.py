@@ -88,14 +88,15 @@ def main():
                             targets=[('gateway',str(client.base_url))] if reuse or fallback or expected_failure or db_contention else [('direct',stats['primary'].removesuffix('/stats')),('gateway',str(client.base_url))]
                             if run%2:targets.reverse()
                             for target,url in targets:
-                                lock=None; holder=None
-                                if db_contention:
+                                holders=[]
+                                def inject_contention():
                                     lock=sqlite3.connect(stats['database'],check_same_thread=False)
                                     lock.execute('BEGIN IMMEDIATE')
-                                    holder=threading.Thread(target=lambda: (time.sleep(1),lock.rollback(),lock.close()))
-                                    holder.start()
-                                sample=stage(url,payload,concurrency,min(args.seconds,1) if expected_failure else args.seconds,stats['management'],gateway.pid,stats['primary_pid'],expected_text=('x'*4096)*8 if large else 'hello '*3,api_key=key['key'] if key else 'sdk-test-key',unique=reuse=='miss')
-                                if holder:holder.join()
+                                    def release():
+                                        time.sleep(1);lock.rollback();lock.close()
+                                    holder=threading.Thread(target=release);holders.append(holder);holder.start()
+                                sample=stage(url,payload,concurrency,min(args.seconds,1) if expected_failure else args.seconds,stats['management'],gateway.pid,stats['primary_pid'],expected_text=('x'*4096)*8 if large else 'hello '*3,api_key=key['key'] if key else 'sdk-test-key',unique=reuse=='miss',on_measurement_start=inject_contention if db_contention else None)
+                                for holder in holders:holder.join()
                                 sample.update(scenario=name,target=target,mode=mode,concurrency=concurrency,run=run+1,expected_failure=expected_failure,breaker_window='1ms' if expected_failure else '30s')
                                 if expected_failure:
                                     assert sample['errors']>0 and sample['successful_requests']==0,sample

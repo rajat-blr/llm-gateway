@@ -1,0 +1,669 @@
+{
+  "revision": "444517b98e781437ed7ecdc6b0048172ec0a4cb3",
+  "environment": {
+    "hardware": {
+      "machdep.cpu.brand_string": "Apple M4",
+      "hw.memsize": "17179869184"
+    },
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "go": "go version go1.27.3 darwin/arm64"
+  },
+  "runs": [
+    {
+      "duration_seconds": 120.16246125008911,
+      "concurrency": 32,
+      "batches": 327,
+      "completed_streams": 5232,
+      "canceled_streams": 5232,
+      "max_batch_cancellation_observation_seconds": 0.22600495803635567,
+      "samples": [
+        {
+          "elapsed_seconds": 0.3652507080696523,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6663304.0,
+          "sockets": 62,
+          "rss_bytes": 34537472
+        },
+        {
+          "elapsed_seconds": 5.48075129208155,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7054896.0,
+          "sockets": 64,
+          "rss_bytes": 43499520
+        },
+        {
+          "elapsed_seconds": 10.5906337921042,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6532600.0,
+          "sockets": 64,
+          "rss_bytes": 42434560
+        },
+        {
+          "elapsed_seconds": 15.705782333039679,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7375144.0,
+          "sockets": 64,
+          "rss_bytes": 43368448
+        },
+        {
+          "elapsed_seconds": 20.853658083011396,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6951544.0,
+          "sockets": 64,
+          "rss_bytes": 44679168
+        },
+        {
+          "elapsed_seconds": 25.986747792107053,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7359032.0,
+          "sockets": 64,
+          "rss_bytes": 45318144
+        },
+        {
+          "elapsed_seconds": 31.1644775000168,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6981136.0,
+          "sockets": 64,
+          "rss_bytes": 46497792
+        },
+        {
+          "elapsed_seconds": 36.30029004206881,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7372256.0,
+          "sockets": 64,
+          "rss_bytes": 47104000
+        },
+        {
+          "elapsed_seconds": 41.44954383303411,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7365120.0,
+          "sockets": 64,
+          "rss_bytes": 47808512
+        },
+        {
+          "elapsed_seconds": 46.580692999996245,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7574520.0,
+          "sockets": 64,
+          "rss_bytes": 48005120
+        },
+        {
+          "elapsed_seconds": 51.74759812501725,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7437432.0,
+          "sockets": 64,
+          "rss_bytes": 48119808
+        },
+        {
+          "elapsed_seconds": 56.85792608303018,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7497008.0,
+          "sockets": 64,
+          "rss_bytes": 48168960
+        },
+        {
+          "elapsed_seconds": 62.02270566707011,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7487488.0,
+          "sockets": 64,
+          "rss_bytes": 47448064
+        },
+        {
+          "elapsed_seconds": 67.17949050001334,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7675456.0,
+          "sockets": 64,
+          "rss_bytes": 47824896
+        },
+        {
+          "elapsed_seconds": 72.33726891700644,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7093224.0,
+          "sockets": 64,
+          "rss_bytes": 47644672
+        },
+        {
+          "elapsed_seconds": 77.48985766700935,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7542768.0,
+          "sockets": 64,
+          "rss_bytes": 48709632
+        },
+        {
+          "elapsed_seconds": 82.61308820801787,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7630328.0,
+          "sockets": 64,
+          "rss_bytes": 48840704
+        },
+        {
+          "elapsed_seconds": 87.71183516702149,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7553424.0,
+          "sockets": 64,
+          "rss_bytes": 48857088
+        },
+        {
+          "elapsed_seconds": 92.88476379204076,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7560656.0,
+          "sockets": 64,
+          "rss_bytes": 48480256
+        },
+        {
+          "elapsed_seconds": 98.04184579208959,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7528960.0,
+          "sockets": 64,
+          "rss_bytes": 48709632
+        },
+        {
+          "elapsed_seconds": 103.198734833044,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7589632.0,
+          "sockets": 64,
+          "rss_bytes": 47677440
+        },
+        {
+          "elapsed_seconds": 108.37315495801158,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7544144.0,
+          "sockets": 64,
+          "rss_bytes": 47808512
+        },
+        {
+          "elapsed_seconds": 113.53244112501852,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7684816.0,
+          "sockets": 64,
+          "rss_bytes": 47808512
+        },
+        {
+          "elapsed_seconds": 118.64264820807148,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7030200.0,
+          "sockets": 64,
+          "rss_bytes": 47644672
+        },
+        {
+          "elapsed_seconds": 120.13868620805442,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7446896.0,
+          "sockets": 64,
+          "rss_bytes": 47661056
+        }
+      ],
+      "loss_deltas": {
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "guards": {
+        "goroutines_above_warm": 96,
+        "sockets_above_warm": 72,
+        "post_gc_heap_above_warm_bytes": 16777216
+      }
+    },
+    {
+      "duration_seconds": 120.27480320795439,
+      "concurrency": 32,
+      "batches": 327,
+      "completed_streams": 5232,
+      "canceled_streams": 5232,
+      "max_batch_cancellation_observation_seconds": 0.22139762504957616,
+      "samples": [
+        {
+          "elapsed_seconds": 0.37274674989748746,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 6650512.0,
+          "sockets": 62,
+          "rss_bytes": 35258368
+        },
+        {
+          "elapsed_seconds": 5.515689499909058,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6752328.0,
+          "sockets": 64,
+          "rss_bytes": 43614208
+        },
+        {
+          "elapsed_seconds": 10.656662791967392,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7270520.0,
+          "sockets": 64,
+          "rss_bytes": 45203456
+        },
+        {
+          "elapsed_seconds": 15.822179957991466,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7194200.0,
+          "sockets": 64,
+          "rss_bytes": 44138496
+        },
+        {
+          "elapsed_seconds": 20.952979791909456,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6912176.0,
+          "sockets": 64,
+          "rss_bytes": 44384256
+        },
+        {
+          "elapsed_seconds": 26.08626737492159,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7408752.0,
+          "sockets": 64,
+          "rss_bytes": 45105152
+        },
+        {
+          "elapsed_seconds": 31.24592491693329,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6721816.0,
+          "sockets": 64,
+          "rss_bytes": 45629440
+        },
+        {
+          "elapsed_seconds": 36.395851541892625,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7376080.0,
+          "sockets": 64,
+          "rss_bytes": 46497792
+        },
+        {
+          "elapsed_seconds": 41.53801549994387,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6806352.0,
+          "sockets": 64,
+          "rss_bytes": 46956544
+        },
+        {
+          "elapsed_seconds": 46.67434649995994,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7403104.0,
+          "sockets": 64,
+          "rss_bytes": 47218688
+        },
+        {
+          "elapsed_seconds": 51.82359629194252,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6934968.0,
+          "sockets": 64,
+          "rss_bytes": 47366144
+        },
+        {
+          "elapsed_seconds": 56.97520162491128,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7542768.0,
+          "sockets": 64,
+          "rss_bytes": 47366144
+        },
+        {
+          "elapsed_seconds": 62.11558433296159,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6960416.0,
+          "sockets": 64,
+          "rss_bytes": 47611904
+        },
+        {
+          "elapsed_seconds": 67.2636854168959,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7566688.0,
+          "sockets": 64,
+          "rss_bytes": 47497216
+        },
+        {
+          "elapsed_seconds": 72.4116097498918,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7103240.0,
+          "sockets": 64,
+          "rss_bytes": 47644672
+        },
+        {
+          "elapsed_seconds": 77.55294299998786,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7469496.0,
+          "sockets": 64,
+          "rss_bytes": 48201728
+        },
+        {
+          "elapsed_seconds": 82.70522066694684,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7610408.0,
+          "sockets": 64,
+          "rss_bytes": 48201728
+        },
+        {
+          "elapsed_seconds": 87.88401649997104,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7421224.0,
+          "sockets": 64,
+          "rss_bytes": 48283648
+        },
+        {
+          "elapsed_seconds": 93.06135933299083,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7672704.0,
+          "sockets": 64,
+          "rss_bytes": 48119808
+        },
+        {
+          "elapsed_seconds": 98.2482981669018,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6912624.0,
+          "sockets": 64,
+          "rss_bytes": 48136192
+        },
+        {
+          "elapsed_seconds": 103.35590045794379,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7605352.0,
+          "sockets": 64,
+          "rss_bytes": 47316992
+        },
+        {
+          "elapsed_seconds": 108.48197237495333,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7213240.0,
+          "sockets": 64,
+          "rss_bytes": 47054848
+        },
+        {
+          "elapsed_seconds": 113.61854749999475,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7567800.0,
+          "sockets": 64,
+          "rss_bytes": 47398912
+        },
+        {
+          "elapsed_seconds": 118.76064283296,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7552496.0,
+          "sockets": 64,
+          "rss_bytes": 47382528
+        },
+        {
+          "elapsed_seconds": 120.2525441669859,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7217152.0,
+          "sockets": 64,
+          "rss_bytes": 47415296
+        }
+      ],
+      "loss_deltas": {
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "guards": {
+        "goroutines_above_warm": 96,
+        "sockets_above_warm": 72,
+        "post_gc_heap_above_warm_bytes": 16777216
+      }
+    },
+    {
+      "duration_seconds": 120.22861541598104,
+      "concurrency": 32,
+      "batches": 327,
+      "completed_streams": 5232,
+      "canceled_streams": 5232,
+      "max_batch_cancellation_observation_seconds": 0.22607066703494638,
+      "samples": [
+        {
+          "elapsed_seconds": 0.37549412494990975,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 5426848.0,
+          "sockets": 48,
+          "rss_bytes": 32833536
+        },
+        {
+          "elapsed_seconds": 5.522579790907912,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 7231328.0,
+          "sockets": 64,
+          "rss_bytes": 42369024
+        },
+        {
+          "elapsed_seconds": 10.674648957909085,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7219064.0,
+          "sockets": 64,
+          "rss_bytes": 44843008
+        },
+        {
+          "elapsed_seconds": 15.821412040968426,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7088288.0,
+          "sockets": 64,
+          "rss_bytes": 45957120
+        },
+        {
+          "elapsed_seconds": 20.94893491594121,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7344816.0,
+          "sockets": 64,
+          "rss_bytes": 46809088
+        },
+        {
+          "elapsed_seconds": 26.085432499996386,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 6660056.0,
+          "sockets": 64,
+          "rss_bytes": 47693824
+        },
+        {
+          "elapsed_seconds": 31.23805437493138,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 7430344.0,
+          "sockets": 64,
+          "rss_bytes": 46694400
+        },
+        {
+          "elapsed_seconds": 36.364813957945444,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 7001368.0,
+          "sockets": 64,
+          "rss_bytes": 46415872
+        },
+        {
+          "elapsed_seconds": 41.513815207988955,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7367224.0,
+          "sockets": 64,
+          "rss_bytes": 47464448
+        },
+        {
+          "elapsed_seconds": 46.66759904101491,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7376280.0,
+          "sockets": 64,
+          "rss_bytes": 47808512
+        },
+        {
+          "elapsed_seconds": 51.81191049993504,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7070824.0,
+          "sockets": 64,
+          "rss_bytes": 47939584
+        },
+        {
+          "elapsed_seconds": 56.93791816593148,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7310400.0,
+          "sockets": 64,
+          "rss_bytes": 47759360
+        },
+        {
+          "elapsed_seconds": 62.08601029100828,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7499168.0,
+          "sockets": 64,
+          "rss_bytes": 47824896
+        },
+        {
+          "elapsed_seconds": 67.25224283291027,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6921520.0,
+          "sockets": 64,
+          "rss_bytes": 47857664
+        },
+        {
+          "elapsed_seconds": 72.40764879097696,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7510816.0,
+          "sockets": 64,
+          "rss_bytes": 47693824
+        },
+        {
+          "elapsed_seconds": 77.57028224994428,
+          "goroutines": 64.0,
+          "post_gc_heap_bytes": 7518168.0,
+          "sockets": 64,
+          "rss_bytes": 47874048
+        },
+        {
+          "elapsed_seconds": 82.69508500001393,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7594888.0,
+          "sockets": 64,
+          "rss_bytes": 47087616
+        },
+        {
+          "elapsed_seconds": 87.81721675000153,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 6912088.0,
+          "sockets": 64,
+          "rss_bytes": 47136768
+        },
+        {
+          "elapsed_seconds": 92.95091420796234,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7475600.0,
+          "sockets": 64,
+          "rss_bytes": 47710208
+        },
+        {
+          "elapsed_seconds": 98.06367833295371,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7461976.0,
+          "sockets": 64,
+          "rss_bytes": 47808512
+        },
+        {
+          "elapsed_seconds": 103.19872229092289,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7635056.0,
+          "sockets": 64,
+          "rss_bytes": 47448064
+        },
+        {
+          "elapsed_seconds": 108.36721120798029,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7697800.0,
+          "sockets": 64,
+          "rss_bytes": 47562752
+        },
+        {
+          "elapsed_seconds": 113.53955391596537,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7241688.0,
+          "sockets": 64,
+          "rss_bytes": 47677440
+        },
+        {
+          "elapsed_seconds": 118.69454874994699,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7628032.0,
+          "sockets": 64,
+          "rss_bytes": 47693824
+        },
+        {
+          "elapsed_seconds": 120.20357091596816,
+          "goroutines": 63.0,
+          "post_gc_heap_bytes": 7720160.0,
+          "sockets": 64,
+          "rss_bytes": 47693824
+        }
+      ],
+      "loss_deltas": {
+        "llmgw_usage_dropped_total": 0.0,
+        "llmgw_usage_write_failures_total": 0.0,
+        "llmgw_accounting_errors_total": 0.0
+      },
+      "guards": {
+        "goroutines_above_warm": 96,
+        "sockets_above_warm": 72,
+        "post_gc_heap_above_warm_bytes": 16777216
+      }
+    }
+  ],
+  "limitations": "Finite developer-host soak, post-GC retained heap, warm idle connection pools allowed. Regression guards do not prove leak freedom.",
+  "slow_readers": {
+    "rounds": 10,
+    "concurrency": 8,
+    "fixture_output_bytes_per_stream": 4194304,
+    "receive_buffer_bytes": 1024,
+    "write_timeout_ms": 200,
+    "samples": [
+      {
+        "round": 1,
+        "drain_seconds_after_headers": 0.23459550004918128,
+        "heap_bytes": 11153384.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 2,
+        "drain_seconds_after_headers": 0.23494687501806766,
+        "heap_bytes": 5441264.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 3,
+        "drain_seconds_after_headers": 0.23853750003036112,
+        "heap_bytes": 9012864.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 4,
+        "drain_seconds_after_headers": 0.23909625003580004,
+        "heap_bytes": 6254040.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 5,
+        "drain_seconds_after_headers": 0.21484241704456508,
+        "heap_bytes": 14481968.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 6,
+        "drain_seconds_after_headers": 0.2320000419858843,
+        "heap_bytes": 16569656.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 7,
+        "drain_seconds_after_headers": 0.22889104194473475,
+        "heap_bytes": 5481224.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 8,
+        "drain_seconds_after_headers": 0.22181529097724706,
+        "heap_bytes": 5895504.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 9,
+        "drain_seconds_after_headers": 0.21899462502915412,
+        "heap_bytes": 6346816.0,
+        "goroutines": 15.0
+      },
+      {
+        "round": 10,
+        "drain_seconds_after_headers": 0.2291744169779122,
+        "heap_bytes": 10382728.0,
+        "goroutines": 15.0
+      }
+    ],
+    "assertion": "Active attempts, streams, work and usage drained while all client sockets remained open and response bodies were unread."
+  }
+}

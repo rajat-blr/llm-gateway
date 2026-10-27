@@ -1,0 +1,23 @@
+{
+  "recorded_utc": "2026-10-27T13:49:23.891281+00:00",
+  "source_basis": "5152e1fb39a98fb9fbe964a5fd477658b6218660",
+  "scope": "Local final working tree including SQLite test-fixture isolation and measurement-hook fix; no production source changes after the JSON optimization.",
+  "checks": {
+    "make release-check": "passed (race/vet, build, client tests, differential fuzz, SDK, harness cleanup/env tests, extended load smoke, resource smoke)",
+    "make test-fuzz": "passed (159081 executions, 10s)",
+    "actual Redis stop/recovery": "passed",
+    "Docker build and monitoring health": "passed",
+    "demo client real gateway": "passed (14 checks)",
+    "reviewer walkthrough": "passed (stream, key/reuse/budget, monitoring, isolated fallback/cancel/drop)",
+    "three 120s resource runs": "passed",
+    "ten unread large-response rounds": "passed",
+    "live provider JSON/SSE": "not run: credentials and model names not available"
+  },
+  "soak_report": "resource-soak-2026-10-27.json",
+  "profile_report": "profiles/investigation.rst",
+  "load_reports": [
+    "extended-load-2026-10-27.json",
+    "release-faults-2026-10-27.json"
+  ],
+  "limits": "Finite fixture evidence. See README measured warmup errors, intentional SQLite usage loss and interrupted experiments."
+}

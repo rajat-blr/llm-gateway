@@ -112,7 +112,7 @@ def one_request(connection, payload, cancel=False, expected_text="hello " * 3, a
         response.close()
 
 
-def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid, expected_text="hello " * 3, api_key="sdk-test-key", unique=False):
+def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid, expected_text="hello " * 3, api_key="sdk-test-key", unique=False, on_measurement_start=None):
     target = urlsplit(url)
     # Warm each connection before measurement. Warmups are not counted.
     barrier = threading.Barrier(concurrency + 1)
@@ -190,6 +190,8 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid,
         before = metrics(management)
         cpu_before = {"gateway": process_stats(gateway_pid), "mock": process_stats(mock_pid)}
         generator_before = resource.getrusage(resource.RUSAGE_SELF)
+        if on_measurement_start is not None:
+            on_measurement_start()
         start = time.perf_counter()
         end[0] = start + seconds
         sampler = threading.Thread(target=sample)

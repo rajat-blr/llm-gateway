@@ -5,8 +5,8 @@ A small OpenAI-compatible text gateway with OpenAI and Anthropic adapters.
 MIT licensed. The default demo uses deterministic fixtures; no paid API key
 is needed.
 
-Status: observable gateway foundation
--------------------------------------
+Status: fixture-backed v1 acceptance
+------------------------------------
 
 Implemented: strict text request validation, SQLite-backed bearer authentication,
 alias discovery, translated JSON/SSE responses, bounded concurrency and
@@ -18,11 +18,19 @@ exact caching/coalescing, atomic SIGHUP routing reload, a separate Prometheus ma
 local pprof, and a provisioned Grafana dashboard.
 Fixtures and pinned SDK acceptance tests require no paid API key.
 
-The complete v1 release remains in progress. A repeatable local baseline and
-bounded cancellation soak are recorded in ``benchmarks/README.rst``. Long soaks,
-profiling and measured optimization remain pending. Readiness checks SQLite key reads,
-Redis, and validated startup state; provider failure does not affect readiness. No performance claims
-are made.
+The local v1 acceptance work is implemented and validated: protocol/resilience,
+keys/usage, cache/reload, monitoring, repeated load measurements, sustained
+resource checks, and a profiled optimization. The release evidence and its
+limits are linked below. Optional real-provider execution remains unverified
+until local credentials and compatible model names are configured. Fixture
+checks do not establish real-provider behavior or production capacity.
+
+* `Compatibility matrix <docs/compatibility.rst>`_
+* `Acceptance map and commands <docs/release-acceptance.rst>`_
+* `Architecture and design decisions <docs/architecture.txt>`_
+* `Extended load results <benchmarks/extended-method.rst>`_
+* `CPU/heap investigation and optimization <benchmarks/profiles/investigation.rst>`_
+* `Sustained resource evidence <benchmarks/resource-soak.rst>`_
 
 Run the demo
 ------------
@@ -123,9 +131,10 @@ use a separate test instance. Test namespaces are isolated from demo data.
 Running go test directly without REDIS_TEST_ADDR skips real-Redis scenarios;
 make check and CI require them.
 
-CI runs the Go checks, 19 SDK scenarios, admin/reuse demos, container failure
-scenarios, and a real Redis interruption while streaming. Real-provider
-smoke tests are intentionally outside deterministic tests.
+CI runs race/vet, 20 SDK scenarios, differential JSON fuzzing, demo-client checks,
+load/resource harness smoke tests, namespace-isolation checks, monitored Docker
+acceptance, admin/reuse demos, provider failure scenarios and a real Redis
+interruption. Paid-provider tests remain optional and outside deterministic CI.
 
 API subset
 ----------
@@ -184,7 +193,8 @@ Demo defaults: 1 MiB request body, 8 MiB upstream response/stream budget,
 deadline. Slow clients are bounded by write timeouts. Error delivery has a
 separate bounded best-effort write window after a timeout.
 
-Design and remaining release gates are recorded in docs/architecture.txt.
+Design decisions are recorded in docs/architecture.txt; executable release
+acceptance is mapped in docs/release-acceptance.rst.
 The local PRD and all Markdown files are excluded from tracking by request.
 
 Resilience demo
@@ -231,8 +241,8 @@ debit to input plus output tokens. Missing/partial usage, timeouts, and broken
 streams retain the full debit. Before a second attempt, the first must be
 settled and a new reservation must succeed. Reconciliation errors stop new
 attempts and emit an accounting-error log/counter; an already streaming call
-continues. Accounting errors are visible through /admin/status; the
-Prometheus management exporter is pending.
+continues. Accounting errors are visible through /admin/status and the separate
+Prometheus management exporter.
 
 Reservation metadata expires after 15 minutes without automatic refunds.
 Bucket TTL covers debt refill plus the reconciliation lifetime. Different
@@ -506,3 +516,87 @@ The first command checks request construction, streaming boundaries, expected
 errors and cancellation. The second also runs all eight examples against the
 local demo. These checks execute the shipped client with a DOM substitute;
 they do not provide browser layout coverage. CI runs both commands.
+
+Final release checks and evidence
+----------------------------------
+
+Use Go 1.27.3 (the recorded version), Node.js 24, and a Python environment with
+the pinned SDK requirements. With Redis available on REDIS_TEST_ADDR::
+
+    python3 -m venv .venv
+    . .venv/bin/activate
+    python -m pip install -r examples/requirements.txt
+    docker compose up -d --wait redis
+    make release-check
+
+This runs the deterministic suite and short load/resource checks. Full
+measurements are intentionally outside timing-sensitive CI::
+
+    make release-evidence
+    python scripts/profile_gateway.py --output tmp/profiles/new
+    go test ./internal/gateway -run '^$' -bench BenchmarkStrictJSON -benchmem -benchtime=500ms -count=5
+
+The extended matrix records three repetitions of JSON and streaming traffic at
+concurrency 1/10/100/500, larger input/output payloads, cache hits/misses,
+coalescing, fallback, stream drops and SQLite contention. On the recorded host,
+93 accepted non-fault stages completed 468,148 requests. Cache hits accounted
+for 83,074 completions with no provider attempts. Three 100-caller coalescing
+batches each owned one attempt. Raw reports retain every repetition and errors.
+
+Three 120-second resource runs completed 15,696 streams and canceled 15,696,
+with cancellation observed within 226ms and no usage/settlement loss. Quiescent
+goroutines stayed at 63..64 and TCP sockets at 48..64. Ten unread 4MiB-stream
+rounds released active work while client sockets stayed open. These finite
+runs use explicit regression guards and do not prove leak freedom.
+
+CPU/heap profiles identified avoidable JSON token-scan allocations. The measured
+32KiB parser case improved from a median 85.3 to 73.3 microseconds and from about
+329,607 to 164,770 allocated bytes per operation across five repetitions. The controlled
+full-gateway profile pair did not show a throughput gain; the optimization
+claim is specific to parsing time and allocation. Original and replacement
+validators are compared by differential fuzzing; raw profiles are checked in.
+
+Important measured limits: concurrency 500 produced 57 transient HTTP 502
+warmup failures, so the report does not claim error-free burst admission.
+Measured stages at that level had no request errors. Deliberately locking the
+SQLite writer lost 27 usage records while 2,450 inference requests completed;
+the counters exposed that loss. An earlier fault-load generator exhausted host
+ephemeral ports after fast breaker rejections. Its interrupted capture is
+retained, and the corrected stream-drop run isolates actual SSE errors. No
+production throughput budget, exact spending cap or billing durability is claimed.
+
+Five-minute reviewer walkthrough
+----------------------------------
+
+Start gateway, Redis, fixtures and monitoring together::
+
+    make monitoring
+
+Then, in the Python environment above::
+
+    python scripts/reviewer_demo.py
+
+The walkthrough verifies normal streaming, temporary-key revocation, exact
+cache/coalescing, token-budget rejection and the dashboard. It also runs isolated
+fixture processes to demonstrate primary fallback, disconnect cancellation and
+SDK-visible mid-stream failure without changing the running demo's configuration.
+Dashboard traffic reflects the main demo; isolated failure fixtures have their
+own counters. Review the profile and benchmark links above for measured evidence.
+The earlier resilience commands can reproduce failures directly in the browser.
+
+Optional live-provider verification
+-------------------------------------
+
+Local execution status: not run; provider credentials and model names have not
+been supplied to the test environment. Configure OPENAI_API_KEY,
+ANTHROPIC_API_KEY, OPENAI_MODEL and ANTHROPIC_MODEL in the environment or an
+ignored .env file (see .env.example). Use text-chat models supporting this
+compatibility subset and max_tokens. Never commit credentials. Run explicitly::
+
+    python scripts/live_smoke.py --live
+
+This makes at most four small provider requests: JSON and SSE for each adapter,
+with max_tokens=64. It checks completion shape, stable streaming metadata,
+finish/usage and provider attribution. Only sanitized pass/fail metadata is
+written to tmp/live-smoke.json; credentials and generated text are not recorded.
+Use --env-file /absolute/path/to/local.env for configuration stored elsewhere.

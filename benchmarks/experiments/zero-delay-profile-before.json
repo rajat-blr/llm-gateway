@@ -1,0 +1,55 @@
+{
+  "duration_including_inflight_drain_seconds": 11.004429584019817,
+  "successful_requests": 62352,
+  "observed_requests_per_second": 5666.081964897574,
+  "errors": 0,
+  "error_examples": [],
+  "latency": {
+    "samples": 62352,
+    "p50_ms": 5.344292032532394,
+    "p95_ms": 9.209125069901347,
+    "p99_ms": 11.932957917451859
+  },
+  "first_text": {
+    "samples": 0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null
+  },
+  "cpu": {
+    "gateway": {
+      "cpu_seconds": 47.19,
+      "mean_cpu_cores": 4.288273157613493,
+      "rss_after_bytes": 67715072
+    },
+    "mock": {
+      "cpu_seconds": 15.56,
+      "mean_cpu_cores": 1.4139760612940444,
+      "rss_after_bytes": 24641536
+    }
+  },
+  "generator_mean_cpu_cores": 0.7993519275886677,
+  "generator_process_peak_rss_bytes": 79953920,
+  "sampled_peaks": {
+    "go_goroutines": 161.0,
+    "go_memstats_heap_alloc_bytes": 20894080.0,
+    "go_memstats_heap_inuse_bytes": 24764416.0,
+    "llmgw_active_attempts": 21.0,
+    "llmgw_active_streams": 0.0,
+    "llmgw_usage_queue_depth": 1024.0
+  },
+  "counter_deltas": {
+    "llmgw_requests_total": 62352.0,
+    "llmgw_attempts_total": 62352.0,
+    "llmgw_usage_dropped_total": 26842.0,
+    "llmgw_usage_write_failures_total": 0.0,
+    "llmgw_accounting_errors_total": 0.0
+  },
+  "binary_sha256": "dcb3e55a301b2fdccc5246f2bc83b8b7c3026331cc76899a47edf07770a56328",
+  "hardware": {
+    "machdep.cpu.brand_string": "Apple M4",
+    "hw.memsize": "17179869184"
+  },
+  "profile_seconds": 10,
+  "workload": "32 concurrent persistent connections, JSON, 32KiB input, zero first delay, no reuse"
+}

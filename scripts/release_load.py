@@ -66,11 +66,16 @@ def main():
     parser.add_argument('--runs',type=int,default=3)
     parser.add_argument('--seconds',type=float,default=2)
     parser.add_argument('--max-concurrency',type=int,choices=[10,100,500],default=500)
+    parser.add_argument('--only',nargs='+',choices=['all','normal','large32KiB','cache-hit','cache-miss','sqlite-contention','seeded-fallback','midstream-drop','coalesced'],default=['all'])
     args=parser.parse_args()
+    def include(name):return 'all' in args.only or name in args.only
     if not (1<=args.runs<=5 and .1<=args.seconds<=10):parser.error('runs 1..5; seconds .1..10')
     result={'schema':1,'revision':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'environment':{'hardware':machine_details(),'platform':platform.platform(),'go':subprocess.check_output(['go','version'],text=True).strip(),'python':platform.python_version()},'driver_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'binary_sha256':hashlib.sha256((ROOT/'bin/gateway').read_bytes()).hexdigest(),'runs':args.runs,'stage_seconds':args.seconds,'measurement':'closed loop; warm connection per worker; order alternates; all raw repetitions; sampled peaks; CPU/RSS include shared host limits','stages':[]}
     def run_case(name,mock_args=(),levels=(10,100),modes=('json',),reuse=None,fallback=False,large=False,expected_failure=False, db_contention=False):
-        with running(mock_args,configure=config,fallback=fallback) as (client,gateway,stats):
+        def configure_case(c):
+            config(c)
+            if expected_failure:c['breaker']['window']='1ms'
+        with running(mock_args,configure=configure_case,fallback=fallback) as (client,gateway,stats):
             result['environment']['redis_version']=redis_version(json.loads(Path(stats['config']).read_text())['redis']['address'])
             key=None
             if reuse:
@@ -89,12 +94,12 @@ def main():
                                     lock.execute('BEGIN IMMEDIATE')
                                     holder=threading.Thread(target=lambda: (time.sleep(1),lock.rollback(),lock.close()))
                                     holder.start()
-                                sample=stage(url,payload,concurrency,args.seconds,stats['management'],gateway.pid,stats['primary_pid'],expected_text=('x'*4096)*8 if large else 'hello '*3,api_key=key['key'] if key else 'sdk-test-key',unique=reuse=='miss')
+                                sample=stage(url,payload,concurrency,min(args.seconds,1) if expected_failure else args.seconds,stats['management'],gateway.pid,stats['primary_pid'],expected_text=('x'*4096)*8 if large else 'hello '*3,api_key=key['key'] if key else 'sdk-test-key',unique=reuse=='miss')
                                 if holder:holder.join()
-                                sample.update(scenario=name,target=target,mode=mode,concurrency=concurrency,run=run+1,expected_failure=expected_failure)
+                                sample.update(scenario=name,target=target,mode=mode,concurrency=concurrency,run=run+1,expected_failure=expected_failure,breaker_window='1ms' if expected_failure else '30s')
                                 if expected_failure:
                                     assert sample['errors']>0 and sample['successful_requests']==0,sample
-                                    assert all('stream error' in error for error in sample['error_examples']),sample
+                                    assert all('stream error' in error for error in sample['error_counts']),sample
                                 elif concurrency<=100:assert sample['errors']==0,sample
                                 if reuse=='hit':assert sample['counter_deltas']['llmgw_attempts_total']==0,sample
                                 if reuse=='miss':assert sample['counter_deltas']['llmgw_attempts_total']==sample['successful_requests'],sample
@@ -107,15 +112,16 @@ def main():
                 if key:admin(client,'DELETE','/admin/keys/'+key['id'])
     levels=tuple(n for n in (1,10,100,500) if n<=args.max_concurrency)
     detail_levels=tuple(n for n in (10,100) if n<=args.max_concurrency)
-    run_case('normal',levels=levels,modes=('json','stream'))
-    run_case('large32KiB',('-chunks','8','-payload','x'*4096),levels=detail_levels,modes=('json','stream'),large=True)
-    run_case('cache-hit',levels=detail_levels,reuse='hit')
-    run_case('cache-miss',levels=detail_levels,reuse='miss')
-    run_case('sqlite-contention',levels=(10,),db_contention=True)
-    run_case('seeded-fallback',('-fail-every','3'),levels=detail_levels,fallback=True)
-    run_case('midstream-drop',('-drop-after','1'),levels=detail_levels,modes=('stream',),expected_failure=True)
-    with running(('-first-delay','300ms'),configure=config) as (client,_,stats):
-        result['coalesced']=coalesced(client,stats,min(100,args.max_concurrency),args.runs)
+    if include('normal'):run_case('normal',levels=levels,modes=('json','stream'))
+    if include('large32KiB'):run_case('large32KiB',('-chunks','8','-payload','x'*4096),levels=detail_levels,modes=('json','stream'),large=True)
+    if include('cache-hit'):run_case('cache-hit',levels=detail_levels,reuse='hit')
+    if include('cache-miss'):run_case('cache-miss',levels=detail_levels,reuse='miss')
+    if include('sqlite-contention'):run_case('sqlite-contention',levels=(10,),db_contention=True)
+    if include('seeded-fallback'):run_case('seeded-fallback',('-fail-every','3'),levels=detail_levels,fallback=True)
+    if include('midstream-drop'):run_case('midstream-drop',('-drop-after','1'),levels=detail_levels,modes=('stream',),expected_failure=True)
+    if include('coalesced'):
+        with running(('-first-delay','300ms'),configure=config) as (client,_,stats):
+            result['coalesced']=coalesced(client,stats,min(100,args.max_concurrency),args.runs)
     args.output.write_text(json.dumps(result,indent=2)+'\n')
     print('Recorded',args.output)
 

@@ -1,0 +1,60 @@
+{
+  "duration_including_inflight_drain_seconds": 11.006258375011384,
+  "successful_requests": 58923,
+  "observed_requests_per_second": 5353.590474831921,
+  "errors": 0,
+  "error_examples": [],
+  "latency": {
+    "samples": 58923,
+    "p50_ms": 5.473625031299889,
+    "p95_ms": 10.324166971258819,
+    "p99_ms": 14.712041011080146
+  },
+  "first_text": {
+    "samples": 0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null
+  },
+  "cpu": {
+    "gateway": {
+      "cpu_seconds": 41.589999999999996,
+      "mean_cpu_cores": 3.7787591916273704,
+      "rss_after_bytes": 65093632
+    },
+    "mock": {
+      "cpu_seconds": 14.5,
+      "mean_cpu_cores": 1.317432274070615,
+      "rss_after_bytes": 22298624
+    }
+  },
+  "generator_mean_cpu_cores": 0.7851195842920654,
+  "generator_process_peak_rss_bytes": 76300288,
+  "sampled_peaks": {
+    "go_goroutines": 150.0,
+    "go_memstats_heap_alloc_bytes": 21229512.0,
+    "go_memstats_heap_inuse_bytes": 25100288.0,
+    "llmgw_active_attempts": 24.0,
+    "llmgw_active_streams": 0.0,
+    "llmgw_usage_queue_depth": 1024.0
+  },
+  "counter_deltas": {
+    "llmgw_requests_total": 58923.0,
+    "llmgw_attempts_total": 58923.0,
+    "llmgw_usage_dropped_total": 20679.0,
+    "llmgw_usage_write_failures_total": 0.0,
+    "llmgw_accounting_errors_total": 0.0,
+    "llmgw_cache_hits_total": 0.0,
+    "llmgw_cache_misses_total": 0.0,
+    "llmgw_cache_coalesced_total": 0.0,
+    "llmgw_fallbacks_total": 0,
+    "llmgw_breaker_skips_total": 0
+  },
+  "binary_sha256": "c49d309b6a607a712b4092afeaf758596d97c0ddcf76692a53d1242035e952c3",
+  "hardware": {
+    "machdep.cpu.brand_string": "Apple M4",
+    "hw.memsize": "17179869184"
+  },
+  "profile_seconds": 10,
+  "workload": "32 concurrent persistent connections, JSON, 32KiB input, zero first delay, no reuse"
+}

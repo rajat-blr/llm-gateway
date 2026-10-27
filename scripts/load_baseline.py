@@ -6,6 +6,7 @@ client/gateway/mock CPU, sampled gateway runtime resources and usage loss.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from collections import Counter
 import http.client
 import hashlib
 import socket
@@ -62,50 +63,53 @@ def one_request(connection, payload, cancel=False, expected_text="hello " * 3, a
     start = time.perf_counter()
     connection.request("POST", "/v1/chat/completions", payload, {"Content-Type": "application/json", "Authorization": "Bearer " + api_key})
     response = connection.getresponse()
-    if response.status != 200:
-        response.read()
-        raise RuntimeError("HTTP " + str(response.status))
-    first_text = None
-    if '"stream": true' in payload:
-        done = False
-        text = ""
-        finish = False
-        while True:
-            line = response.readline()
-            if not line:
-                break
-            if not line.startswith(b"data: "):
-                continue
-            data = line[6:].strip()
-            if data == b"[DONE]":
-                done = True
-                break
-            event = json.loads(data)
-            if "error" in event:
-                raise RuntimeError("stream error")
-            for choice in event["choices"]:
-                delta = choice.get("delta", {}).get("content", "")
-                text += delta
-                if choice.get("finish_reason") == "stop":
-                    finish = True
-                if delta and first_text is None:
-                    first_text = (time.perf_counter() - start) * 1000
-                    if cancel:
-                        # Closing HTTPResponse alone may drain/reuse the socket.
-                        # Close the underlying connection to exercise disconnect.
-                        connection.close()
-                        response.close()
-                        return None, first_text
-        response.read()
+    try:
+        if response.status != 200:
+            response.read()
+            raise RuntimeError("HTTP " + str(response.status))
+        first_text = None
+        if '"stream": true' in payload:
+            done = False
+            text = ""
+            finish = False
+            while True:
+                line = response.readline()
+                if not line:
+                    break
+                if not line.startswith(b"data: "):
+                    continue
+                data = line[6:].strip()
+                if data == b"[DONE]":
+                    done = True
+                    break
+                event = json.loads(data)
+                if "error" in event:
+                    raise RuntimeError("stream error")
+                for choice in event["choices"]:
+                    delta = choice.get("delta", {}).get("content", "")
+                    text += delta
+                    if choice.get("finish_reason") == "stop":
+                        finish = True
+                    if delta and first_text is None:
+                        first_text = (time.perf_counter() - start) * 1000
+                        if cancel:
+                            # Closing HTTPResponse alone may drain/reuse the socket.
+                            # Close the underlying connection to exercise disconnect.
+                            connection.close()
+                            response.close()
+                            return None, first_text
+            response.read()
+            response.close()
+            if not done or not finish or text != expected_text:
+                raise RuntimeError("incomplete or incorrect stream")
+        else:
+            value = json.loads(response.read())
+            response.close()
+            if value["choices"][0]["message"]["content"] != expected_text:
+                raise RuntimeError("incorrect completion")
+        return (time.perf_counter() - start) * 1000, first_text
+    finally:
         response.close()
-        if not done or not finish or text != expected_text:
-            raise RuntimeError("incomplete or incorrect stream")
-    else:
-        value = json.loads(response.read())
-        response.close()
-        if value["choices"][0]["message"]["content"] != expected_text:
-            raise RuntimeError("incorrect completion")
-    return (time.perf_counter() - start) * 1000, first_text
 
 
 def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid, expected_text="hello " * 3, api_key="sdk-test-key", unique=False):
@@ -141,6 +145,7 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid,
         except Exception as error:
             with lock:
                 errors.append("warmup: " + str(error))
+            connection.close()
         barrier.wait(timeout=30)
         start_signal.wait()
         local_latencies, local_firsts, local_errors = [], [], []
@@ -174,6 +179,14 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid,
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = [pool.submit(worker) for _ in range(concurrency)]
         barrier.wait(timeout=30)
+        warmup_deadline = time.monotonic() + 10
+        while True:
+            warmup = metrics(management)
+            if all(warmup.get(name,0)==0 for name in ("llmgw_active_attempts","llmgw_active_work_slots","llmgw_active_streams","llmgw_shared_executions","llmgw_shared_waiters","llmgw_usage_queue_depth","llmgw_usage_in_flight")):
+                break
+            if time.monotonic()>=warmup_deadline:
+                raise RuntimeError("warmup work did not drain")
+            time.sleep(.025)
         before = metrics(management)
         cpu_before = {"gateway": process_stats(gateway_pid), "mock": process_stats(mock_pid)}
         generator_before = resource.getrusage(resource.RUSAGE_SELF)
@@ -196,7 +209,7 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid,
     deadline = time.monotonic() + 10
     while True:
         after = metrics(management)
-        if after.get("llmgw_usage_queue_depth", 0) == 0 and after.get("llmgw_usage_in_flight", 0) == 0:
+        if all(after.get(name,0)==0 for name in ("llmgw_active_attempts","llmgw_active_work_slots","llmgw_active_streams","llmgw_shared_executions","llmgw_shared_waiters","llmgw_usage_queue_depth","llmgw_usage_in_flight")):
             break
         if time.monotonic() >= deadline:
             errors.append("usage queue did not drain within 10s")
@@ -204,7 +217,7 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid,
         time.sleep(.05)
     cpu = {name: {"cpu_seconds": cpu_after[name]["cpu_seconds"] - cpu_before[name]["cpu_seconds"], "mean_cpu_cores": (cpu_after[name]["cpu_seconds"] - cpu_before[name]["cpu_seconds"]) / elapsed, "rss_after_bytes": cpu_after[name]["rss_bytes"]} for name in cpu_after}
     generator_cpu = generator_after.ru_utime + generator_after.ru_stime - generator_before.ru_utime - generator_before.ru_stime
-    return {"duration_including_inflight_drain_seconds": elapsed, "successful_requests": len(latencies), "observed_requests_per_second": len(latencies) / elapsed, "errors": len(errors), "warmup_errors": sum(error.startswith("warmup:") for error in errors), "measurement_errors": sum(not error.startswith("warmup:") for error in errors), "error_examples": errors[:5], "latency": summarize(latencies), "first_text": summarize(first_texts), "cpu": cpu, "generator_mean_cpu_cores": generator_cpu / elapsed, "generator_process_peak_rss_bytes": generator_after.ru_maxrss * (1 if platform.system() == "Darwin" else 1024), "sampled_peaks": peaks, "counter_deltas": {name: after.get(name, 0) - before.get(name, 0) for name in ("llmgw_requests_total", "llmgw_attempts_total", "llmgw_usage_dropped_total", "llmgw_usage_write_failures_total", "llmgw_accounting_errors_total", "llmgw_cache_hits_total", "llmgw_cache_misses_total", "llmgw_cache_coalesced_total", "llmgw_fallbacks_total", "llmgw_breaker_skips_total")}}
+    return {"duration_including_inflight_drain_seconds": elapsed, "successful_requests": len(latencies), "observed_requests_per_second": len(latencies) / elapsed, "errors": len(errors), "warmup_errors": sum(error.startswith("warmup:") for error in errors), "measurement_errors": sum(not error.startswith("warmup:") for error in errors), "error_examples": errors[:5], "error_counts": dict(Counter(errors)), "latency": summarize(latencies), "first_text": summarize(first_texts), "cpu": cpu, "generator_mean_cpu_cores": generator_cpu / elapsed, "generator_process_peak_rss_bytes": generator_after.ru_maxrss * (1 if platform.system() == "Darwin" else 1024), "sampled_peaks": peaks, "counter_deltas": {name: after.get(name, 0) - before.get(name, 0) for name in ("llmgw_requests_total", "llmgw_attempts_total", "llmgw_usage_dropped_total", "llmgw_usage_write_failures_total", "llmgw_accounting_errors_total", "llmgw_cache_hits_total", "llmgw_cache_misses_total", "llmgw_cache_coalesced_total", "llmgw_fallbacks_total", "llmgw_breaker_skips_total")}}
 
 
 def soak(client, stats, rounds, concurrency):

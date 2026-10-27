@@ -3,6 +3,8 @@ import contextlib
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import signal
+import re
+from urllib.parse import urlsplit
 import json
 import os
 from pathlib import Path
@@ -53,6 +55,57 @@ def stop(process):
             process.kill()
             process.wait(timeout=2)
             raise AssertionError("process exceeded shutdown deadline")
+
+
+class TestRedis:
+    """Small bounded RESP client for fixture namespace cleanup, never production."""
+    def __init__(self, config):
+        target=urlsplit('redis://'+config['address'])
+        self.connection=socket.create_connection((target.hostname,target.port),timeout=2)
+        self.reader=self.connection.makefile('rb')
+        try:
+            if config.get('password_env') and os.getenv(config['password_env']):
+                self.command('AUTH',os.environ[config['password_env']])
+            if config.get('db',0):self.command('SELECT',config['db'])
+        except Exception:
+            self.close();raise
+    def close(self):
+        self.reader.close();self.connection.close()
+    def command(self,*parts):
+        encoded=[str(part).encode() for part in parts]
+        self.connection.sendall(b'*'+str(len(parts)).encode()+b'\r\n'+b''.join(b'$'+str(len(part)).encode()+b'\r\n'+part+b'\r\n' for part in encoded))
+        return self.reply()
+    def reply(self):
+        line=self.reader.readline(65536)
+        if not line:raise OSError('Redis connection ended')
+        kind,value=line[:1],line[1:-2]
+        if kind==b'-':raise OSError('Redis command rejected')
+        if kind in (b'+',b':'):return value.decode()
+        size=int(value)
+        if kind==b'$':
+            if size==-1:return None
+            if size<0 or size>1<<20:raise OSError('Redis reply exceeds test bound')
+            result=self.reader.read(size);assert self.reader.read(2)==b'\r\n';return result.decode()
+        if kind==b'*' and 0<=size<=10000:return [self.reply() for _ in range(size)]
+        raise OSError('unexpected Redis reply')
+
+
+def cleanup_test_namespace(config):
+    # Only the exact random namespace allocated by running() is eligible.
+    prefix=config['redis']['prefix']
+    if not re.fullmatch(r'sdk:[0-9a-f]{32}',prefix):return
+    redis=None
+    try:
+        redis=TestRedis(config['redis']);cursor='0'
+        while True:
+            cursor,keys=redis.command('SCAN',cursor,'MATCH',prefix+':*','COUNT',500)
+            if keys:redis.command('UNLINK',*keys)
+            if cursor=='0':break
+    except (OSError,ValueError,AssertionError):
+        # Outage scenarios may intentionally leave Redis unavailable; TTL remains.
+        pass
+    finally:
+        if redis:redis.close()
 
 
 @contextlib.contextmanager
@@ -124,6 +177,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True, ca
                     stop(gateway)
                 stop(mock)
                 stop(secondary)
+                cleanup_test_namespace(config)
 
 
 def admin(client, method, path, payload=None):

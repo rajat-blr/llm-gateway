@@ -37,6 +37,7 @@ down:
 release-check: check build demo-check
 	go test ./internal/gateway -run '^$$' -fuzz FuzzStrictJSONEquivalent -fuzztime 10s -parallel 2
 	python3 scripts/sdk_integration.py
+	python3 scripts/harness_test.py
 	python3 scripts/release_load.py --runs 1 --seconds 0.2 --max-concurrency 10 --output tmp/release-load-smoke.json
 	python3 scripts/resource_soak.py --seconds 2 --runs 1 --concurrency 4 --slow-rounds 1 --output tmp/resource-soak-smoke.json
 

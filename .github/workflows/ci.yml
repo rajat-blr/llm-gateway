@@ -34,11 +34,17 @@ jobs:
       - run: make check
       - run: python -m pip install -r examples/requirements.txt
       - run: make integration
+      - run: go test ./internal/gateway -run '^$' -fuzz FuzzStrictJSONEquivalent -fuzztime 10s -parallel 2
+      - run: python scripts/release_load.py --runs 1 --seconds 0.2 --max-concurrency 10 --output tmp/release-load-smoke.json
+      - run: python scripts/resource_soak.py --seconds 2 --runs 1 --concurrency 4 --slow-rounds 1 --output tmp/resource-soak-smoke.json
       - run: python scripts/load_baseline.py --duration 0.2 --runs 1 --concurrency 1 4 --soak-rounds 2 --soak-concurrency 4
       - uses: actions/upload-artifact@v4
         with:
           name: baseline-smoke
-          path: tmp/baseline.json
+          path: |
+            tmp/baseline.json
+            tmp/release-load-smoke.json
+            tmp/resource-soak-smoke.json
       - run: docker compose up --build --wait
       - run: DEMO_BASE_URL=http://localhost:8080 node --test scripts/demo_test.cjs
       - run: python examples/chat.py

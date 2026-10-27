@@ -1,0 +1,32 @@
+File: gateway-before
+Type: alloc_space
+Time: 2026-10-27 15:23:05 IST
+Showing nodes accounting for 6211.87MB, 95.02% of 6537.31MB total
+Dropped 295 nodes (cum <= 32.69MB)
+Showing top 25 nodes out of 57
+      flat  flat%   sum%        cum   cum%
+ 3036.38MB 46.45% 46.45%  3036.88MB 46.45%  encoding/json/jsontext.(*decoderState).fetch
+ 1026.20MB 15.70% 62.14%  1027.20MB 15.71%  io.ReadAll
+  460.85MB  7.05% 69.19%   460.85MB  7.05%  bytes.Clone (inline)
+  396.64MB  6.07% 75.26%   396.64MB  6.07%  io.copyBuffer
+  372.91MB  5.70% 80.97%   372.91MB  5.70%  encoding/json/v2.makeString
+  366.73MB  5.61% 86.58%   366.73MB  5.61%  encoding/json/jsontext.Token.String (inline)
+  262.99MB  4.02% 90.60%   262.99MB  4.02%  slices.Grow[go.shape.[]uint8,go.shape.uint8] (inline)
+  226.95MB  3.47% 94.07%   226.95MB  3.47%  net/http.init.func2
+   45.21MB  0.69% 94.76%   418.12MB  6.40%  encoding/json/v2.makeStringArshaler.func2
+    4.50MB 0.069% 94.83%    39.01MB   0.6%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).settle
+       4MB 0.061% 94.89%   267.99MB  4.10%  encoding/json/v2.makeStructArshaler.func2
+       2MB 0.031% 94.92%   735.85MB 11.26%  github.com/rajat-blr/llm-gateway/internal/gateway.upstreamRequest
+       2MB 0.031% 94.95%    33.01MB   0.5%  github.com/rajat-blr/llm-gateway/internal/storage.(*Store).WriteUsage
+    1.50MB 0.023% 94.98%  1896.48MB 29.01%  encoding/json.(*Decoder).Token
+       1MB 0.015% 94.99%  5731.76MB 87.68%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).chat
+       1MB 0.015% 95.01%    61.07MB  0.93%  github.com/rajat-blr/llm-gateway/internal/storage.(*Store).Authenticate
+    0.50MB 0.0076% 95.01%   864.47MB 13.22%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).runRoute
+    0.50MB 0.0076% 95.02%  5840.87MB 89.35%  net/http.(*conn).serve
+         0     0% 95.02%   396.64MB  6.07%  bufio.(*Writer).ReadFrom
+         0     0% 95.02%       35MB  0.54%  database/sql.(*DB).retry
+         0     0% 95.02%    34.01MB  0.52%  database/sql.withLock
+         0     0% 95.02%  1900.59MB 29.07%  encoding/json.(*Decoder).Decode
+         0     0% 95.02%   737.85MB 11.29%  encoding/json.Marshal (inline)
+         0     0% 95.02%    41.16MB  0.63%  encoding/json.Unmarshal (inline)
+         0     0% 95.02%   262.99MB  4.02%  encoding/json/internal/jsonwire.AppendQuote

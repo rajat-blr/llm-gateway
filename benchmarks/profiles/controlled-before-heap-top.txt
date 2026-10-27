@@ -1,0 +1,31 @@
+File: gateway-before
+Type: inuse_space
+Time: 2026-10-27 15:23:05 IST
+Showing nodes accounting for 6308.60kB, 100% of 6308.60kB total
+Showing top 25 nodes out of 61
+      flat  flat%   sum%        cum   cum%
+ 3075.34kB 48.75% 48.75%  3075.34kB 48.75%  runtime.mallocgc
+ 1056.33kB 16.74% 65.49%  1056.33kB 16.74%  bufio.NewReaderSize
+  618.49kB  9.80% 75.30%   618.49kB  9.80%  github.com/rajat-blr/llm-gateway/internal/storage.NewWorker
+  532.26kB  8.44% 83.73%   532.26kB  8.44%  slices.Grow[go.shape.[]uint8,go.shape.uint8] (inline)
+     514kB  8.15% 91.88%      514kB  8.15%  bufio.NewWriterSize
+  512.17kB  8.12%   100%   512.17kB  8.12%  encoding/json/v2.makeStructFields
+         0     0%   100%   532.26kB  8.44%  encoding/json.Marshal (inline)
+         0     0%   100%   512.17kB  8.12%  encoding/json.Unmarshal (inline)
+         0     0%   100%   532.26kB  8.44%  encoding/json/internal/jsonwire.AppendQuote
+         0     0%   100%   532.26kB  8.44%  encoding/json/v2.Marshal
+         0     0%   100%   512.17kB  8.12%  encoding/json/v2.Unmarshal
+         0     0%   100%   532.26kB  8.44%  encoding/json/v2.makeSliceArshaler.func2
+         0     0%   100%   512.17kB  8.12%  encoding/json/v2.makeSliceArshaler.func3
+         0     0%   100%   532.26kB  8.44%  encoding/json/v2.makeStringArshaler.func1
+         0     0%   100%   512.17kB  8.12%  encoding/json/v2.makeStructArshaler.func1
+         0     0%   100%   532.26kB  8.44%  encoding/json/v2.makeStructArshaler.func2
+         0     0%   100%   512.17kB  8.12%  encoding/json/v2.makeStructArshaler.func3
+         0     0%   100%   532.26kB  8.44%  encoding/json/v2.marshalEncode
+         0     0%   100%   512.17kB  8.12%  encoding/json/v2.unmarshalDecode
+         0     0%   100%  1044.43kB 16.56%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).ServeHTTP
+         0     0%   100%  1044.43kB 16.56%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).chat
+         0     0%   100%  1044.43kB 16.56%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).execute
+         0     0%   100%  1044.43kB 16.56%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).runRoute
+         0     0%   100%   618.49kB  9.80%  github.com/rajat-blr/llm-gateway/internal/gateway.New
+         0     0%   100%   512.17kB  8.12%  github.com/rajat-blr/llm-gateway/internal/gateway.decodeCompletion

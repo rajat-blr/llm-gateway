@@ -1,0 +1,33 @@
+File: gateway-before
+Type: cpu
+Time: 2026-10-27 15:22:54 IST
+Duration: 10.11s, Total samples = 13.92s (137.64%)
+Showing nodes accounting for 11.77s, 84.55% of 13.92s total
+Dropped 435 nodes (cum <= 0.07s)
+Showing top 25 nodes out of 336
+      flat  flat%   sum%        cum   cum%
+     4.64s 33.33% 33.33%      4.64s 33.33%  syscall.rawsyscalln
+     1.17s  8.41% 41.74%      1.17s  8.41%  runtime.pthread_cond_signal
+     0.93s  6.68% 48.42%      0.94s  6.75%  runtime.usleep
+     0.85s  6.11% 54.53%      0.85s  6.11%  runtime.pthread_cond_wait
+     0.72s  5.17% 59.70%      0.72s  5.17%  runtime.kevent
+     0.62s  4.45% 64.15%      0.62s  4.45%  runtime.madvise
+     0.58s  4.17% 68.32%      0.75s  5.39%  encoding/json/internal/jsonwire.ConsumeSimpleString
+     0.49s  3.52% 71.84%      0.49s  3.52%  runtime.pthread_kill
+     0.28s  2.01% 73.85%      0.45s  3.23%  encoding/json/internal/jsonwire.ConsumeStringResumable
+     0.24s  1.72% 75.57%      0.24s  1.72%  runtime.asyncPreempt
+     0.21s  1.51% 77.08%      0.22s  1.58%  runtime.typePointers.next
+     0.14s  1.01% 78.09%      0.16s  1.15%  encoding/json/internal/jsonwire.AppendQuote
+     0.13s  0.93% 79.02%      0.46s  3.30%  runtime.scanObject
+     0.13s  0.93% 79.96%      0.23s  1.65%  runtime.scanObjectsSmall
+     0.13s  0.93% 80.89%      0.19s  1.36%  runtime.scanblock
+     0.13s  0.93% 81.82%      0.19s  1.36%  runtime.tryDeferToSpanScan
+     0.12s  0.86% 82.69%      0.13s  0.93%  encoding/json/internal/jsonwire.ConsumeStringResumable.func1 (inline)
+     0.05s  0.36% 83.05%      0.15s  1.08%  runtime.pcvalue
+     0.04s  0.29% 83.33%      0.11s  0.79%  runtime.(*stkframe).getStackMap
+     0.04s  0.29% 83.62%      1.81s 13.00%  runtime.gcDrain
+     0.03s  0.22% 83.84%      2.11s 15.16%  modernc.org/sqlite/lib._sqlite3VdbeExec
+     0.03s  0.22% 84.05%      0.07s   0.5%  runtime.scanObjectSmall
+     0.03s  0.22% 84.27%      0.36s  2.59%  runtime.scanSpan
+     0.02s  0.14% 84.41%      0.14s  1.01%  modernc.org/sqlite/lib._getAndInitPage
+     0.02s  0.14% 84.55%      0.25s  1.80%  modernc.org/sqlite/lib._sqlite3Parser

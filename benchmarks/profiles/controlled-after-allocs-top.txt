@@ -1,0 +1,32 @@
+File: gateway
+Type: alloc_space
+Time: 2026-10-27 15:23:17 IST
+Showing nodes accounting for 4144.51MB, 94.13% of 4403.05MB total
+Dropped 296 nodes (cum <= 22.02MB)
+Showing top 25 nodes out of 67
+      flat  flat%   sum%        cum   cum%
+ 1442.69MB 32.77% 32.77%  1442.69MB 32.77%  encoding/json/jsontext.(*decoderState).fetch
+ 1009.45MB 22.93% 55.69%  1009.45MB 22.93%  io.ReadAll
+  447.26MB 10.16% 65.85%   447.26MB 10.16%  bytes.Clone (inline)
+  371.37MB  8.43% 74.28%   371.37MB  8.43%  io.copyBuffer
+  344.03MB  7.81% 82.10%   344.03MB  7.81%  encoding/json/v2.makeString
+  229.21MB  5.21% 87.30%   229.21MB  5.21%  slices.Grow[go.shape.[]uint8,go.shape.uint8] (inline)
+  188.26MB  4.28% 91.58%   188.26MB  4.28%  net/http.init.func2
+   44.20MB  1.00% 92.58%   388.23MB  8.82%  encoding/json/v2.makeStringArshaler.func2
+   23.03MB  0.52% 93.11%    23.03MB  0.52%  sync.(*Pool).pinSlow
+       7MB  0.16% 93.26%    43.03MB  0.98%  net/http.(*conn).readRequest
+       7MB  0.16% 93.42%       26MB  0.59%  context.WithDeadlineCause
+       5MB  0.11% 93.54%    29.59MB  0.67%  github.com/rajat-blr/llm-gateway/internal/storage.scanKey
+       4MB 0.091% 93.63%    24.01MB  0.55%  net/http.readRequestLimit
+    3.50MB 0.079% 93.71%   690.47MB 15.68%  github.com/rajat-blr/llm-gateway/internal/gateway.upstreamRequest
+    3.50MB 0.079% 93.79%   806.07MB 18.31%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).runRoute
+       3MB 0.068% 93.86%   233.21MB  5.30%  encoding/json/v2.makeStructArshaler.func2
+       3MB 0.068% 93.92%    31.01MB   0.7%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).settle
+       3MB 0.068% 93.99%  3713.88MB 84.35%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).ServeHTTP
+    2.50MB 0.057% 94.05%    37.01MB  0.84%  github.com/rajat-blr/llm-gateway/internal/storage.(*Store).WriteUsage
+       1MB 0.023% 94.07%    60.09MB  1.36%  github.com/rajat-blr/llm-gateway/internal/storage.(*Store).Authenticate
+       1MB 0.023% 94.09%   567.14MB 12.88%  net/http.(*Request).write
+    0.50MB 0.011% 94.11%  3643.79MB 82.76%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).chat
+    0.50MB 0.011% 94.12%    22.51MB  0.51%  github.com/rajat-blr/llm-gateway/internal/gateway.(*Server).writeCompletion
+    0.50MB 0.011% 94.13%  3764.57MB 85.50%  net/http.(*conn).serve
+         0     0% 94.13%   371.37MB  8.43%  bufio.(*Writer).ReadFrom

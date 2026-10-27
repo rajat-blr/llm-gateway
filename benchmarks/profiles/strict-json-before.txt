@@ -1,0 +1,16 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/rajat-blr/llm-gateway/internal/gateway
+cpu: Apple M4
+BenchmarkStrictJSON/bytes_128-10         	  352856	      1622 ns/op	 124.54 MB/s	    2548 B/op	      43 allocs/op
+BenchmarkStrictJSON/bytes_128-10         	  387188	      1568 ns/op	 128.86 MB/s	    2548 B/op	      43 allocs/op
+BenchmarkStrictJSON/bytes_128-10         	  388326	      1560 ns/op	 129.53 MB/s	    2548 B/op	      43 allocs/op
+BenchmarkStrictJSON/bytes_128-10         	  392820	      1556 ns/op	 129.80 MB/s	    2548 B/op	      43 allocs/op
+BenchmarkStrictJSON/bytes_128-10         	  388654	      1557 ns/op	 129.72 MB/s	    2548 B/op	      43 allocs/op
+BenchmarkStrictJSON/kbytes_32768-10      	    6948	     86222 ns/op	 380.90 MB/s	  329593 B/op	      60 allocs/op
+BenchmarkStrictJSON/kbytes_32768-10      	    7094	     85229 ns/op	 385.34 MB/s	  329607 B/op	      60 allocs/op
+BenchmarkStrictJSON/kbytes_32768-10      	    7171	     85142 ns/op	 385.73 MB/s	  329623 B/op	      60 allocs/op
+BenchmarkStrictJSON/kbytes_32768-10      	    6991	     86287 ns/op	 380.61 MB/s	  329614 B/op	      60 allocs/op
+BenchmarkStrictJSON/kbytes_32768-10      	    7146	     85285 ns/op	 385.08 MB/s	  329605 B/op	      60 allocs/op
+PASS
+ok  	github.com/rajat-blr/llm-gateway/internal/gateway	6.638s

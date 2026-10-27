@@ -24,7 +24,11 @@ LOSS=('llmgw_usage_dropped_total','llmgw_usage_write_failures_total','llmgw_acco
 def sockets(pid):
     directory=Path(f'/proc/{pid}/fd')
     if directory.exists():
-        return sum(os.readlink(p).startswith('socket:') for p in directory.iterdir() if p.exists())
+        count=0
+        for entry in directory.iterdir():
+            try:count+=os.readlink(entry).startswith('socket:')
+            except FileNotFoundError:pass # descriptor closed between listing and readlink
+        return count
     output=subprocess.run(['lsof','-nP','-a','-p',str(pid),'-iTCP','-sTCP:ESTABLISHED','-Ff'],text=True,capture_output=True,check=False)
     if output.returncode not in (0,1):raise RuntimeError('cannot measure process TCP sockets')
     return sum(line.startswith('f') for line in output.stdout.splitlines())

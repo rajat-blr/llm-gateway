@@ -1,0 +1,31 @@
+File: gateway
+Type: inuse_space
+Time: 2026-10-27 15:23:17 IST
+Showing nodes accounting for 7195.80kB, 100% of 7195.80kB total
+Showing top 25 nodes out of 43
+      flat  flat%   sum%        cum   cum%
+ 3077.05kB 42.76% 42.76%  3077.05kB 42.76%  runtime.mallocgc
+    1028kB 14.29% 57.05%     1028kB 14.29%  bufio.NewReaderSize (inline)
+ 1024.11kB 14.23% 71.28%  1024.11kB 14.23%  github.com/prometheus/client_golang/prometheus.v2.NewDesc
+  528.17kB  7.34% 78.62%   528.17kB  7.34%  net/http.init.func2
+     514kB  7.14% 85.76%      514kB  7.14%  bufio.NewWriterSize (inline)
+  512.44kB  7.12% 92.88%   512.44kB  7.12%  github.com/dustin/go-humanize.revfmap
+  512.03kB  7.12%   100%   512.03kB  7.12%  runtime/metrics.init.0
+         0     0%   100%   512.44kB  7.12%  github.com/dustin/go-humanize.init
+         0     0%   100%  1024.11kB 14.23%  github.com/prometheus/client_golang/prometheus.NewDesc (inline)
+         0     0%   100%  1024.11kB 14.23%  github.com/prometheus/client_golang/prometheus.NewGoCollector
+         0     0%   100%   512.05kB  7.12%  github.com/prometheus/client_golang/prometheus.goRuntimeMemStats
+         0     0%   100%  1024.11kB 14.23%  github.com/prometheus/client_golang/prometheus.init.0
+         0     0%   100%   512.05kB  7.12%  github.com/prometheus/client_golang/prometheus.newBaseGoCollector
+         0     0%   100%   528.17kB  7.34%  net/http.(*Request).write
+         0     0%   100%  1542.01kB 21.43%  net/http.(*Transport).dialConn
+         0     0%   100%  1542.01kB 21.43%  net/http.(*Transport).dialConnFor
+         0     0%   100%  1542.01kB 21.43%  net/http.(*Transport).startDialConnForLocked.func1
+         0     0%   100%   528.17kB  7.34%  net/http.(*persistConn).writeLoop
+         0     0%   100%   528.17kB  7.34%  net/http.(*transferWriter).doBodyCopy
+         0     0%   100%   528.17kB  7.34%  net/http.(*transferWriter).writeBody
+         0     0%   100%   528.17kB  7.34%  net/http.getCopyBuf (inline)
+         0     0%   100%   512.05kB  7.12%  runtime.(*scavengerState).init
+         0     0%   100%     2565kB 35.65%  runtime.allocm
+         0     0%   100%   512.05kB  7.12%  runtime.bgscavenge
+         0     0%   100%  2048.58kB 28.47%  runtime.doInit

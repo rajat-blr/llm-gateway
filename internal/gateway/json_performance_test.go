@@ -59,7 +59,9 @@ func referenceInspect(d *json.Decoder, depth int) error {
 	}
 	return err
 }
-func BenchmarkStrictJSON(b *testing.B) {
+func BenchmarkStrictJSON(b *testing.B)          { benchmarkJSON(b, StrictJSON) }
+func BenchmarkStrictJSONReference(b *testing.B) { benchmarkJSON(b, referenceStrictJSON) }
+func benchmarkJSON(b *testing.B, decode func([]byte, any) error) {
 	for _, size := range []int{128, 32768} {
 		b.Run(strings.Repeat("k", size/32768)+"bytes_"+map[int]string{128: "128", 32768: "32768"}[size], func(b *testing.B) {
 			payload := []byte(`{"model":"chat","messages":[{"role":"user","content":"` + strings.Repeat("x", size) + `"}],"max_tokens":16}`)
@@ -67,7 +69,7 @@ func BenchmarkStrictJSON(b *testing.B) {
 			b.SetBytes(int64(len(payload)))
 			for b.Loop() {
 				var r Request
-				if err := StrictJSON(payload, &r); err != nil {
+				if err := decode(payload, &r); err != nil {
 					b.Fatal(err)
 				}
 			}

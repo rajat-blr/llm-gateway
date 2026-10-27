@@ -56,7 +56,7 @@ def stop(process):
 
 
 @contextlib.contextmanager
-def running(mock_args=(), overrides=None, fallback=False, require_ready=True, cache_ttl=None):
+def running(mock_args=(), overrides=None, fallback=False, require_ready=True, cache_ttl=None, configure=None, binary=None, profiling=False):
     mock_port, gateway_port, secondary_port, management_port = free_port(), free_port(), free_port(), free_port()
     config = json.loads((ROOT / "configs/demo.json").read_text())
     config["listen"] = f"127.0.0.1:{gateway_port}"
@@ -70,6 +70,10 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True, ca
     config["redis"]["address"] = os.environ.get("REDIS_TEST_ADDR", config["redis"]["address"])
     config["redis"]["prefix"] = "sdk:" + uuid.uuid4().hex
     config.update(overrides or {})
+    if profiling:
+        config["management"]["pprof"] = True
+    if configure is not None:
+        configure(config)
     if cache_ttl is not None:
         for route in config["routes"].values():
             route["cache"]["ttl"] = cache_ttl
@@ -102,7 +106,7 @@ def running(mock_args=(), overrides=None, fallback=False, require_ready=True, ca
                 wait_until(lambda: get_json(f"http://127.0.0.1:{mock_port}/stats"))
                 wait_until(lambda: get_json(f"http://127.0.0.1:{secondary_port}/stats"))
                 gateway = subprocess.Popen(
-                    [str(ROOT / "bin/gateway"), "-config", str(path)],
+                    [str(binary or ROOT / "bin/gateway"), "-config", str(path)],
                     stdout=logs, stderr=logs, env=env,
                 )
                 wait_until(lambda: get_json(f"http://127.0.0.1:{gateway_port}/" + ("readyz" if require_ready else "healthz")))

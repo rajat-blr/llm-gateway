@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
+	"unicode/utf8"
 )
 
 type Message struct {
@@ -95,53 +95,123 @@ func apiError(code string) ErrorEnvelope {
 // StrictJSON rejects duplicate members and null at every depth, in addition to
 // unknown fields and trailing JSON. This prevents ambiguous adapter mappings.
 func StrictJSON(b []byte, dst any) error {
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.UseNumber()
-	if err := inspectValue(d, 0); err != nil {
+	// Validate syntax first, then inspect structure without materializing string
+	// values or number tokens. Only object keys need decoding for duplicate checks.
+	if !json.Valid(b) {
+		return errors.New("invalid JSON")
+	}
+	scan := strictScanner{data: b}
+	if err := scan.value(0); err != nil {
 		return err
 	}
-	if _, err := d.Token(); err != io.EOF {
-		return errors.New("trailing JSON")
-	}
-	d = json.NewDecoder(bytes.NewReader(b))
+	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
 	return d.Decode(dst)
 }
-func inspectValue(d *json.Decoder, depth int) error {
+
+type strictScanner struct {
+	data []byte
+	pos  int
+}
+
+func (s *strictScanner) space() {
+	for s.pos < len(s.data) {
+		switch s.data[s.pos] {
+		case ' ', '\t', '\r', '\n':
+			s.pos++
+		default:
+			return
+		}
+	}
+}
+
+// Syntax has already been checked by json.Valid. Escaped quotes therefore
+// always have a following byte and cannot terminate a string.
+func (s *strictScanner) stringEnd() {
+	s.pos++
+	for s.data[s.pos] != '"' {
+		if s.data[s.pos] == '\\' {
+			s.pos++
+		}
+		s.pos++
+	}
+	s.pos++
+}
+func (s *strictScanner) value(depth int) error {
 	if depth > 32 {
 		return errors.New("JSON nesting limit")
 	}
-	t, err := d.Token()
-	if err != nil {
-		return err
-	}
-	if t == nil {
+	s.space()
+	switch s.data[s.pos] {
+	case 'n':
 		return errors.New("null is unsupported")
-	}
-	if delim, ok := t.(json.Delim); ok {
-		if delim != '{' && delim != '[' {
-			return errors.New("unexpected delimiter")
+	case '"':
+		s.stringEnd()
+		return nil
+	case '{':
+		s.pos++
+		s.space()
+		seen := map[string]bool{}
+		if s.data[s.pos] == '}' {
+			s.pos++
+			return nil
 		}
-		keys := map[string]bool{}
-		for d.More() {
-			if delim == '{' {
-				k, err := d.Token()
-				if err != nil {
-					return err
-				}
-				key, ok := k.(string)
-				if !ok || keys[key] {
-					return errors.New("duplicate JSON member")
-				}
-				keys[key] = true
-			}
-			if err := inspectValue(d, depth+1); err != nil {
+		for {
+			start := s.pos
+			s.stringEnd()
+			var key string
+			raw := s.data[start+1 : s.pos-1]
+			if bytes.IndexByte(raw, '\\') < 0 && utf8.Valid(raw) {
+				key = string(raw)
+			} else if err := json.Unmarshal(s.data[start:s.pos], &key); err != nil {
 				return err
 			}
+			if seen[key] {
+				return errors.New("duplicate JSON member")
+			}
+			seen[key] = true
+			s.space()
+			s.pos++ // colon
+			if err := s.value(depth + 1); err != nil {
+				return err
+			}
+			s.space()
+			if s.data[s.pos] == '}' {
+				s.pos++
+				return nil
+			}
+			s.pos++
+			s.space()
 		}
-		_, err = d.Token()
+	case '[':
+		s.pos++
+		s.space()
+		if s.data[s.pos] == ']' {
+			s.pos++
+			return nil
+		}
+		for {
+			if err := s.value(depth + 1); err != nil {
+				return err
+			}
+			s.space()
+			if s.data[s.pos] == ']' {
+				s.pos++
+				return nil
+			}
+			s.pos++
+		}
+	default:
+		for s.pos < len(s.data) {
+			switch s.data[s.pos] {
+			case ' ', '\t', '\r', '\n', ',', ']', '}':
+				return nil
+			default:
+				s.pos++
+			}
+		}
+		return nil
 	}
-	return err
 }
 func (r *Request) Validate(route Route, provider ProviderConfig) error {
 	if r.Model == "" || len(r.Messages) == 0 || len(r.Messages) > 256 {

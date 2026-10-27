@@ -58,9 +58,9 @@ def summarize(values):
     return {"samples": len(values), "p50_ms": percentile(values, .5), "p95_ms": percentile(values, .95), "p99_ms": percentile(values, .99)}
 
 
-def one_request(connection, payload, cancel=False):
+def one_request(connection, payload, cancel=False, expected_text="hello " * 3, api_key="sdk-test-key"):
     start = time.perf_counter()
-    connection.request("POST", "/v1/chat/completions", payload, {"Content-Type": "application/json", "Authorization": "Bearer sdk-test-key"})
+    connection.request("POST", "/v1/chat/completions", payload, {"Content-Type": "application/json", "Authorization": "Bearer " + api_key})
     response = connection.getresponse()
     if response.status != 200:
         response.read()
@@ -98,17 +98,17 @@ def one_request(connection, payload, cancel=False):
                         return None, first_text
         response.read()
         response.close()
-        if not done or not finish or text != "hello " * 3:
+        if not done or not finish or text != expected_text:
             raise RuntimeError("incomplete or incorrect stream")
     else:
         value = json.loads(response.read())
         response.close()
-        if value["choices"][0]["message"]["content"] != "hello " * 3:
+        if value["choices"][0]["message"]["content"] != expected_text:
             raise RuntimeError("incorrect completion")
     return (time.perf_counter() - start) * 1000, first_text
 
 
-def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid):
+def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid, expected_text="hello " * 3, api_key="sdk-test-key", unique=False):
     target = urlsplit(url)
     # Warm each connection before measurement. Warmups are not counted.
     barrier = threading.Barrier(concurrency + 1)
@@ -118,20 +118,36 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid)
     stop_sampler = threading.Event()
     end = [0.0]
 
+    sequence = 0
+
     def worker():
+        nonlocal sequence
+        with lock:
+            worker_id = sequence
+            sequence += 1
+        count = 0
+        unique_prefix = str(time.time_ns()) + "-" + str(worker_id)
+        def request_body():
+            nonlocal count
+            if not unique:
+                return payload
+            count += 1
+            value = json.loads(payload)
+            value["messages"][-1]["content"] += f" {unique_prefix}-{count}"
+            return json.dumps(value)
         connection = http.client.HTTPConnection(target.hostname, target.port, timeout=5)
         try:
-            one_request(connection, payload)
+            one_request(connection, request_body(), expected_text=expected_text, api_key=api_key)
         except Exception as error:
             with lock:
                 errors.append("warmup: " + str(error))
-        barrier.wait()
+        barrier.wait(timeout=30)
         start_signal.wait()
         local_latencies, local_firsts, local_errors = [], [], []
         try:
             while time.perf_counter() < end[0]:
                 try:
-                    latency, first = one_request(connection, payload)
+                    latency, first = one_request(connection, request_body(), expected_text=expected_text, api_key=api_key)
                     local_latencies.append(latency)
                     if first is not None:
                         local_firsts.append(first)
@@ -157,7 +173,7 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid)
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = [pool.submit(worker) for _ in range(concurrency)]
-        barrier.wait()
+        barrier.wait(timeout=30)
         before = metrics(management)
         cpu_before = {"gateway": process_stats(gateway_pid), "mock": process_stats(mock_pid)}
         generator_before = resource.getrusage(resource.RUSAGE_SELF)
@@ -188,7 +204,7 @@ def stage(url, payload, concurrency, seconds, management, gateway_pid, mock_pid)
         time.sleep(.05)
     cpu = {name: {"cpu_seconds": cpu_after[name]["cpu_seconds"] - cpu_before[name]["cpu_seconds"], "mean_cpu_cores": (cpu_after[name]["cpu_seconds"] - cpu_before[name]["cpu_seconds"]) / elapsed, "rss_after_bytes": cpu_after[name]["rss_bytes"]} for name in cpu_after}
     generator_cpu = generator_after.ru_utime + generator_after.ru_stime - generator_before.ru_utime - generator_before.ru_stime
-    return {"duration_including_inflight_drain_seconds": elapsed, "successful_requests": len(latencies), "observed_requests_per_second": len(latencies) / elapsed, "errors": len(errors), "error_examples": errors[:5], "latency": summarize(latencies), "first_text": summarize(first_texts), "cpu": cpu, "generator_mean_cpu_cores": generator_cpu / elapsed, "generator_process_peak_rss_bytes": generator_after.ru_maxrss * (1 if platform.system() == "Darwin" else 1024), "sampled_peaks": peaks, "counter_deltas": {name: after.get(name, 0) - before.get(name, 0) for name in ("llmgw_requests_total", "llmgw_attempts_total", "llmgw_usage_dropped_total", "llmgw_usage_write_failures_total", "llmgw_accounting_errors_total")}}
+    return {"duration_including_inflight_drain_seconds": elapsed, "successful_requests": len(latencies), "observed_requests_per_second": len(latencies) / elapsed, "errors": len(errors), "error_examples": errors[:5], "latency": summarize(latencies), "first_text": summarize(first_texts), "cpu": cpu, "generator_mean_cpu_cores": generator_cpu / elapsed, "generator_process_peak_rss_bytes": generator_after.ru_maxrss * (1 if platform.system() == "Darwin" else 1024), "sampled_peaks": peaks, "counter_deltas": {name: after.get(name, 0) - before.get(name, 0) for name in ("llmgw_requests_total", "llmgw_attempts_total", "llmgw_usage_dropped_total", "llmgw_usage_write_failures_total", "llmgw_accounting_errors_total", "llmgw_cache_hits_total", "llmgw_cache_misses_total", "llmgw_cache_coalesced_total", "llmgw_fallbacks_total", "llmgw_breaker_skips_total")}}
 
 
 def soak(client, stats, rounds, concurrency):
@@ -214,7 +230,7 @@ def soak(client, stats, rounds, concurrency):
             if time.monotonic() >= deadline:
                 raise AssertionError("resources did not drain: " + str(sample))
             time.sleep(.025)
-        snapshots.append({"round": round_index + 1, **{name: sample.get(name, 0) for name in ("go_goroutines", "go_memstats_heap_alloc_bytes", "go_memstats_heap_inuse_bytes", "llmgw_usage_dropped_total", "llmgw_accounting_errors_total")}})
+        snapshots.append({"round": round_index + 1, **{name: sample.get(name, 0) for name in ("go_goroutines", "go_memstats_heap_alloc_bytes", "go_memstats_heap_inuse_bytes", "llmgw_usage_dropped_total", "llmgw_accounting_errors_total", "llmgw_cache_hits_total", "llmgw_cache_misses_total", "llmgw_cache_coalesced_total", "llmgw_fallbacks_total", "llmgw_breaker_skips_total")}})
     return {"rounds": rounds, "concurrency": concurrency, "disconnect_fraction": ((concurrency + 1) // 2) / concurrency, "upstream_cancellations": get_json(stats["primary"])["canceled"] - canceled_before, "quiescent_samples": snapshots, "checks": "Every disconnect canceled upstream; every round drained active streams/attempts/slots/shared jobs/waiters/usage within 5s; heap/goroutines reported without a leak-free claim."}
 
 

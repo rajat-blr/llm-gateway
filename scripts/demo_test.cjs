@@ -55,6 +55,11 @@ function eventResponse(text, complete = true) {
   return new Response(new ReadableStream({start(controller) {for (const byte of bytes) controller.enqueue(Uint8Array.of(byte)); controller.close();}}), {headers: {'X-Gateway-Provider': 'fixture', 'X-Cache': 'BYPASS'}});
 }
 
+test('demo offers only OpenAI examples', () => {
+  assert.doesNotMatch(html, /anthropic|switch-adapter/i);
+  assert.doesNotMatch(source, /anthropic|switch-adapter/i);
+});
+
 test('all example requests and edited previews use the shipped form', async () => {
   const app = client(async () => jsonResponse({}));
   assert.equal(app.buttons.length, 8);
@@ -73,6 +78,8 @@ test('all example requests and edited previews use the shipped form', async () =
     if (name === 'conversation') assert.deepEqual(preview.messages.map(message => message.role), ['user', 'assistant', 'user']);
     if (name === 'system') assert.equal(preview.messages[0].role, 'system');
     if (name === 'json') assert.equal(preview.max_tokens, 16);
+    if (name === 'stop') assert.deepEqual(preview.stop, ['END']);
+    assert.equal(preview.model, name === 'unavailable' ? 'unavailable-demo-alias' : 'default-chat');
     if (name === 'unsupported') assert.deepEqual(preview.tools, []);
     assert(!app.text('request-preview').includes('demo-local-key'));
   }

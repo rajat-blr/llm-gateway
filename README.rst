@@ -1,9 +1,10 @@
 LLM Gateway in Go
 =================
 
-A small OpenAI-compatible text gateway with OpenAI and Anthropic adapters.
-MIT licensed. The default demo uses deterministic fixtures; no paid API key
-is needed.
+A small OpenAI-compatible text gateway. The browser demo uses OpenAI only.
+MIT licensed. A separate deterministic OpenAI fixture mode needs no paid key.
+The Anthropic adapter remains covered by isolated regression fixtures; it is
+not configured or offered in the demo.
 
 Status: fixture-backed v1 acceptance
 ------------------------------------
@@ -35,20 +36,28 @@ credential is available. Fixture checks do not establish production capacity.
 Run the demo
 ------------
 
-Requires Docker Desktop or Docker Engine with Compose::
+Requires Docker Desktop or Docker Engine with Compose. Add OPENAI_API_KEY to
+the ignored .env file, then start the live OpenAI demo and monitoring::
+
+    make demo-openai
+
+The live route uses gpt-4o-mini with a 512-token output bound and no response
+cache. Browser requests use the gateway key; the provider key stays server-side.
+Requests in this mode incur OpenAI API usage. The configured model is in
+configs/openai.json. For the deterministic OpenAI fixture mode instead::
 
     make demo
 
 Open http://localhost:8080 in your browser and select Run stream. The page
-includes the public local demo key and eight selectable examples: both
-streaming adapters, JSON completion with output controls, system instructions,
+includes the public local demo key and eight selectable OpenAI examples:
+streaming, stop sequences, JSON completion with output controls, system instructions,
 multi-turn chat, alias discovery, unsupported tools (expected HTTP 400), and an
 unavailable alias (expected HTTP 403). Selecting an example loads its request;
 Run sends it. Expand Request JSON to inspect the body without exposing your key.
 The response shows HTTP status, provider, cache state, usage and timing; JSON
 completions also expose their full response. Changing examples clears old output.
-Fixtures always return the same greeting, including for conversation/system
-examples. Model discovery returns the aliases allowed for your key. The page
+Live OpenAI answers the actual prompts. Fixture mode always returns the same
+greeting, including for conversation/system examples. Model discovery returns the aliases allowed for your key. The page
 does not save keys. If you set a custom GATEWAY_API_KEY, enter it in the form.
 
 Or call the API directly::
@@ -58,18 +67,18 @@ Or call the API directly::
       -H 'Content-Type: application/json' \
       -d '{"model":"default-chat","messages":[{"role":"user","content":"Hello"}],"stream":true,"stream_options":{"include_usage":true}}'
 
-Use ``anthropic-chat`` to exercise the Anthropic translation. Both aliases
-return fixture text. The gateway port is published on loopback only. The
+The demo offers only ``default-chat``. The gateway port is published on loopback only. The
 included demo key is public fixture data; set GATEWAY_API_KEY for your own
 local key. Stop the demo with ``make down``.
 
-Start the optional monitoring stack::
+Live ``make demo-openai`` already includes monitoring. To start monitoring with
+the fixture demo instead::
 
     make monitoring
     python3 scripts/monitoring_acceptance.py
 
 Open http://localhost:3000/d/llm-gateway for the provisioned Grafana dashboard.
-The local demo permits anonymous viewing. Prometheus is at
+The local dashboard permits anonymous viewing. Prometheus is at
 http://localhost:9096 and raw gateway metrics at http://localhost:9095/metrics.
 Monitoring images are version-pinned; initial startup downloads them.
 ``make down`` stops the entire stack and preserves its named volumes.
@@ -200,8 +209,9 @@ The local PRD and all Markdown files are excluded from tracking by request.
 Resilience demo
 ---------------
 
+The following commands switch to fixture mode and inject OpenAI fixture faults.
 Fail the primary before streaming; open the browser demo and Run stream.
-The serving provider should become backup-anthropic::
+In fixture mode, the serving provider should become backup-openai::
 
     MOCK_FAIL_EVERY=1 docker compose up --build --force-recreate --wait
 
@@ -215,7 +225,7 @@ failures in 30 seconds a breaker opens for 10 seconds. One half-open probe is
 allowed at a time; one successful probe closes it. Provider credentials and
 upstream models scope breaker state. Invalid input, provider authentication
 errors, client cancellation, and Redis errors do not count as failures.
-Restore the normal demo with::
+Restore the normal fixture demo with::
 
     docker compose up --build --force-recreate --wait
 
@@ -576,10 +586,12 @@ Then, in the Python environment above::
 
     python scripts/reviewer_demo.py
 
-The walkthrough verifies normal streaming, temporary-key revocation, exact
+Run this walkthrough in fixture mode (``make monitoring``); it asserts fixed
+fixture output and never calls paid providers. It verifies normal streaming,
+temporary-key revocation, exact
 cache/coalescing, token-budget rejection and the dashboard. It also runs isolated
 fixture processes to demonstrate primary fallback, disconnect cancellation and
-SDK-visible mid-stream failure without changing the running demo's configuration.
+SDK-visible mid-stream failure without changing the running fixture demo's configuration.
 Dashboard traffic reflects the main demo; isolated failure fixtures have their
 own counters. Review the profile and benchmark links above for measured evidence.
 The earlier resilience commands can reproduce failures directly in the browser.

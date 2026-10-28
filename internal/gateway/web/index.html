@@ -9,13 +9,13 @@
 </head>
 <body>
   <main>
-    <header><a class="brand" href="/">G<span>↗</span></a><span class="eyebrow">LLM GATEWAY / GO</span><span class="badge">Protocol demo</span></header>
-    <section class="intro"><p class="eyebrow">ONE ENDPOINT. TWO PROTOCOLS.</p><h1>Watch the gateway<br>make the connection.</h1><p class="description">Send a text request and watch translated events arrive. The local demo uses a deterministic mock provider, so no paid API key is needed.</p></section>
+    <header><a class="brand" href="/">G<span>↗</span></a><span class="eyebrow">LLM GATEWAY / GO</span><span class="badge">OpenAI demo</span></header>
+    <section class="intro"><p class="eyebrow">ONE ENDPOINT. OPENAI CHAT.</p><h1>Watch the gateway<br>make the connection.</h1><p class="description">Send a prompt to OpenAI through the gateway. Fixture mode is also available for local checks without API charges.</p></section>
     <section class="examples" aria-labelledby="examples-heading">
       <div class="examples-heading"><h2 id="examples-heading">Choose an example</h2><span>Loads a request. Run it when you're ready.</span></div>
       <div class="example-grid">
         <button type="button" class="example" data-example="openai" aria-pressed="true"><span>OpenAI stream</span><small>SSE</small></button>
-        <button type="button" class="example" data-example="anthropic" aria-pressed="false"><span>Anthropic stream</span><small>SSE</small></button>
+        <button type="button" class="example" data-example="stop" aria-pressed="false"><span>Stop sequence</span><small>JSON</small></button>
         <button type="button" class="example" data-example="json" aria-pressed="false"><span>JSON completion</span><small>JSON</small></button>
         <button type="button" class="example" data-example="system" aria-pressed="false"><span>System instructions</span><small>JSON</small></button>
         <button type="button" class="example" data-example="conversation" aria-pressed="false"><span>Multi-turn chat</span><small>JSON</small></button>
@@ -28,8 +28,8 @@
     <div class="workspace">
       <section class="panel"><div class="panel-heading"><span class="number">01</span><h2>Request</h2><span id="endpoint" class="method">POST /v1/chat/completions</span></div>
         <form id="request-form">
-          <label for="model">Model alias</label><input id="model" name="model" list="aliases" value="default-chat" required><datalist id="aliases"><option value="default-chat">OpenAI adapter</option><option value="anthropic-chat">Anthropic adapter</option></datalist>
-          <p class="hint">Try <button type="button" id="switch-adapter" class="text-button">anthropic-chat</button> to use the other adapter.</p>
+          <label for="model">Model alias</label><input id="model" name="model" list="aliases" value="default-chat" required><datalist id="aliases"><option value="default-chat">OpenAI adapter</option></datalist>
+          <p class="hint">Use <code>default-chat</code>. The serving backend appears under Provider.</p>
           <label for="api-key">Gateway key</label><input id="api-key" name="api-key" type="password" value="demo-local-key" autocomplete="off" required><p class="hint">Pre-filled with the public local demo key. Use your configured key if you changed it. The page does not save keys.</p>
           <label for="prompt">Message</label><textarea id="prompt" name="prompt" rows="4" maxlength="20000" required>Hello from the browser</textarea>
           <details class="request-preview"><summary>Request JSON</summary><pre id="request-preview" aria-label="Request JSON"></pre></details>
@@ -45,7 +45,7 @@
         <div class="request-id"><span>Request ID</span><code id="request-id">—</code></div>
       </section>
     </div>
-    <footer><span>Fixture output is intentionally deterministic: <code>hello hello hello</code>.</span><span>Bearer-authenticated API · Translated SSE · Bounded streaming</span></footer>
+    <footer><span>Live mode returns OpenAI responses. Fixture mode returns a fixed greeting.</span><span>Bearer-authenticated API · Translated SSE · Bounded streaming</span></footer>
   </main>
 </body>
 </html>

@@ -38,3 +38,28 @@ func TestPublicDemoKeepsAPIAuthenticated(t *testing.T) {
 		}
 	}
 }
+
+func TestDemoConfigsUseOnlyOpenAI(t *testing.T) {
+	for _, name := range []string{"demo", "compose", "openai"} {
+		t.Run(name, func(t *testing.T) {
+			config, err := LoadConfig("../../configs/" + name + ".json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(config.Routes) != 1 {
+				t.Fatal("demo must expose one alias")
+			}
+			if _, ok := config.Routes["default-chat"]; !ok {
+				t.Fatal("default alias missing")
+			}
+			for _, provider := range config.Providers {
+				if provider.Kind != "openai" {
+					t.Fatal("non-OpenAI demo provider")
+				}
+			}
+			if name == "openai" && config.Routes["default-chat"].Cache.Enabled {
+				t.Fatal("live reuse must be opt-in")
+			}
+		})
+	}
+}

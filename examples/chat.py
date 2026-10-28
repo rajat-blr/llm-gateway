@@ -7,7 +7,7 @@ client = OpenAI(
     base_url=os.environ.get("GATEWAY_BASE_URL", "http://localhost:8080/v1"),
     max_retries=0,
 )
-for alias in ("default-chat", "anthropic-chat"):
+for alias in ("default-chat",):
     messages = [{"role": "user", "content": "Hello from the SDK"}]
     response = client.chat.completions.create(
         model=alias, messages=messages, max_tokens=32, temperature=0.5, stop=["END"]

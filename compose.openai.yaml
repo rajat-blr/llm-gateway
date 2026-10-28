@@ -1,0 +1,6 @@
+# Explicit live mode. The base Compose file remains deterministic for CI.
+services:
+  gateway:
+    command: ["-config", "/app/configs/openai.json"]
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in the ignored .env file}

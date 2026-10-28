@@ -1,0 +1,17 @@
+{
+  "recorded_utc": "2026-10-28T10:33:44.164439+00:00",
+  "model": "gpt-4o-mini",
+  "config": "configs/openai.json",
+  "route": "default-chat",
+  "provider": "openai-live",
+  "checks": {
+    "json_completion": "passed",
+    "stream_text_usage_and_DONE": "passed",
+    "models_list_only_default_chat": "passed",
+    "removed_anthropic_alias_returns_403": "passed",
+    "deployed_assets_without_anthropic": "passed"
+  },
+  "paid_requests": 2,
+  "max_tokens_per_paid_request": 64,
+  "limits": "This live check does not claim support for additional models or providers."
+}

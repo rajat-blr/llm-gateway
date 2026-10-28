@@ -111,7 +111,7 @@ def cleanup_test_namespace(config):
 @contextlib.contextmanager
 def running(mock_args=(), overrides=None, fallback=False, require_ready=True, cache_ttl=None, configure=None, binary=None, profiling=False):
     mock_port, gateway_port, secondary_port, management_port = free_port(), free_port(), free_port(), free_port()
-    config = json.loads((ROOT / "configs/demo.json").read_text())
+    config = json.loads((ROOT / "configs/fixtures.json").read_text())
     config["listen"] = f"127.0.0.1:{gateway_port}"
     config["management"] = {"listen": f"127.0.0.1:{management_port}", "pprof": False, "allow_remote": False}
     for name, provider in config["providers"].items():

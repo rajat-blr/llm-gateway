@@ -1,0 +1,105 @@
+{
+  "listen": ":8080",
+  "key_env": "GATEWAY_API_KEY",
+  "request_timeout": "30s",
+  "idle_timeout": "5s",
+  "write_timeout": "5s",
+  "shutdown_timeout": "10s",
+  "max_body_bytes": 1048576,
+  "max_output_bytes": 8388608,
+  "max_event_bytes": 65536,
+  "max_concurrent": 64,
+  "max_streams": 32,
+  "providers": {
+    "mock-openai": {
+      "kind": "openai",
+      "base_url": "http://localhost:9090/v1",
+      "key_env": "MOCK_API_KEY"
+    },
+    "mock-anthropic": {
+      "kind": "anthropic",
+      "base_url": "http://localhost:9090/v1",
+      "key_env": "MOCK_API_KEY"
+    },
+    "backup-anthropic": {
+      "kind": "anthropic",
+      "base_url": "http://localhost:9091/v1",
+      "key_env": "MOCK_API_KEY"
+    }
+  },
+  "routes": {
+    "default-chat": {
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-openai",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ],
+      "revision": 1,
+      "cache": {
+        "enabled": true,
+        "ttl": "30s",
+        "max_entry_bytes": 65536
+      }
+    },
+    "anthropic-chat": {
+      "max_output_tokens": 1024,
+      "targets": [
+        {
+          "provider": "mock-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        },
+        {
+          "provider": "backup-anthropic",
+          "model": "mock-text",
+          "attempt_timeout": "25s"
+        }
+      ],
+      "revision": 1,
+      "cache": {
+        "enabled": true,
+        "ttl": "30s",
+        "max_entry_bytes": 65536
+      }
+    }
+  },
+  "redis": {
+    "address": "127.0.0.1:6381",
+    "db": 0,
+    "prefix": "llmgw",
+    "timeout": "200ms",
+    "reservation_ttl": "15m"
+  },
+  "token_limit": {
+    "capacity": 100000,
+    "refill_per_second": 1000
+  },
+  "breaker": {
+    "failures": 5,
+    "window": "30s",
+    "open_for": "10s",
+    "recovery_successes": 1
+  },
+  "backoff_base": "25ms",
+  "backoff_max": "250ms",
+  "admin_token_env": "GATEWAY_ADMIN_TOKEN",
+  "sqlite": {
+    "path": "data/gateway.db",
+    "timeout": "500ms",
+    "busy_timeout": "100ms",
+    "usage_queue": 1024
+  },
+  "management": {
+    "listen": "127.0.0.1:9095",
+    "allow_remote": false,
+    "pprof": false
+  }
+}

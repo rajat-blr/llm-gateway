@@ -3,9 +3,9 @@ const byId = id => document.getElementById(id);
 const exampleButtons = [...document.querySelectorAll("[data-example]")];
 const examples = {
   openai: {model: "default-chat", stream: true, prompt: "Hello from the browser", description: "Stream text through the OpenAI adapter, followed by final token usage."},
-  anthropic: {model: "anthropic-chat", stream: true, prompt: "Hello through the Anthropic adapter", description: "Send the same OpenAI-shaped request through Anthropic. The gateway translates the response into OpenAI SSE events."},
+  stop: {model: "default-chat", prompt: "Say hello, then write END.", options: {max_tokens: 32, stop: ["END"]}, description: "Stop generation before END appears. The stop sequence is passed to OpenAI; fixture output stays fixed."},
   json: {model: "default-chat", prompt: "Give me a short greeting", options: {max_tokens: 16, temperature: 0.2}, description: "Receive one JSON completion with a 16-token output bound and temperature 0.2. Expand the full response to inspect usage and finish reason."},
-  system: {model: "anthropic-chat", prompt: "Explain what an API gateway does", history: [{role: "system", content: "You are a concise assistant. Answer in one sentence."}], description: "Send system instructions and a user message through Anthropic. Inspect the request to see both roles. Fixtures always return the same text."},
+  system: {model: "default-chat", prompt: "Explain what an API gateway does", history: [{role: "system", content: "You are a concise assistant. Answer in one sentence."}], description: "Send system instructions and a user message through OpenAI. Inspect the request to see both roles. Fixture mode returns fixed text."},
   conversation: {model: "default-chat", prompt: "Which city did I just mention?", history: [{role: "user", content: "I am planning a visit to Bengaluru."}, {role: "assistant", content: "What would you like to know about Bengaluru?"}], description: "Send a three-message conversation in one request. History travels with the request; the gateway does not store conversation state. Fixture text remains deterministic."},
   models: {method: "GET", description: "List aliases available to your gateway key. This authenticated discovery request does not call a provider."},
   unsupported: {model: "default-chat", prompt: "What is the weather?", options: {tools: []}, expected: {status: 400, code: "invalid_request"}, description: "Try an unsupported tools field. Expect HTTP 400: this gateway supports text completions and rejects unsupported fields explicitly."},
@@ -31,9 +31,8 @@ function refreshRequest() {
   byId("endpoint").textContent = `${spec.method} ${spec.path}`;
   byId("request-preview").textContent = spec.body ? JSON.stringify(spec.body, null, 2) : "GET /v1/models\nNo request body.";
   const discovery = spec.method === "GET";
-  for (const id of ["model", "prompt", "switch-adapter"]) byId(id).disabled = !!controller || discovery;
+  for (const id of ["model", "prompt"]) byId(id).disabled = !!controller || discovery;
   byId("run").textContent = discovery ? "List models ↗" : examples[selected].expected ? "Try rejection ↗" : examples[selected].stream ? "Run stream ↗" : "Send request ↗";
-  byId("switch-adapter").textContent = byId("model").value === "anthropic-chat" ? "default-chat" : "anthropic-chat";
 }
 function selectExample(name) {
   if (controller) return;
@@ -64,10 +63,6 @@ function setBusy(busy) {
 }
 for (const button of exampleButtons) button.addEventListener("click", () => selectExample(button.dataset.example));
 for (const id of ["model", "prompt"]) byId(id).addEventListener("input", refreshRequest);
-byId("switch-adapter").addEventListener("click", () => {
-  byId("model").value = byId("model").value === "anthropic-chat" ? "default-chat" : "anthropic-chat";
-  refreshRequest();
-});
 byId("stop").addEventListener("click", () => controller?.abort());
 byId("request-form").addEventListener("submit", async event => {
   event.preventDefault();

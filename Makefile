@@ -1,7 +1,7 @@
 REDIS_TEST_ADDR ?= 127.0.0.1:6381
 export REDIS_TEST_ADDR
 
-.PHONY: build test test-fuzz check integration demo demo-check monitoring baseline release-check release-evidence down
+.PHONY: build test test-fuzz check integration demo demo-openai demo-check monitoring baseline release-check release-evidence down
 build:
 	mkdir -p bin
 	go build -trimpath -o bin/gateway ./cmd/gateway
@@ -24,6 +24,9 @@ demo-check:
 
 demo:
 	docker compose up --build --wait
+
+demo-openai:
+	docker compose -f compose.yaml -f compose.openai.yaml --profile monitoring up --build --wait
 
 baseline: build
 	python3 scripts/load_baseline.py

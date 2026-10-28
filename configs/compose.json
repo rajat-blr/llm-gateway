@@ -16,13 +16,8 @@
       "base_url": "http://mock:9090/v1",
       "key_env": "MOCK_API_KEY"
     },
-    "mock-anthropic": {
-      "kind": "anthropic",
-      "base_url": "http://mock:9090/v1",
-      "key_env": "MOCK_API_KEY"
-    },
-    "backup-anthropic": {
-      "kind": "anthropic",
+    "backup-openai": {
+      "kind": "openai",
       "base_url": "http://mock-secondary:9090/v1",
       "key_env": "MOCK_API_KEY"
     }
@@ -37,33 +32,12 @@
           "attempt_timeout": "25s"
         },
         {
-          "provider": "backup-anthropic",
+          "provider": "backup-openai",
           "model": "mock-text",
           "attempt_timeout": "25s"
         }
       ],
-      "revision": 1,
-      "cache": {
-        "enabled": true,
-        "ttl": "30s",
-        "max_entry_bytes": 65536
-      }
-    },
-    "anthropic-chat": {
-      "max_output_tokens": 1024,
-      "targets": [
-        {
-          "provider": "mock-anthropic",
-          "model": "mock-text",
-          "attempt_timeout": "25s"
-        },
-        {
-          "provider": "backup-anthropic",
-          "model": "mock-text",
-          "attempt_timeout": "25s"
-        }
-      ],
-      "revision": 1,
+      "revision": 2,
       "cache": {
         "enabled": true,
         "ttl": "30s",

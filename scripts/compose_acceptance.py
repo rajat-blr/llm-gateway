@@ -27,7 +27,7 @@ with urllib.request.urlopen(request, timeout=5) as response:
         assert "[DONE]" not in events
         assert any(payload.get("error", {}).get("code") == "upstream_failure" for payload in payloads)
     else:
-        expected = "backup-anthropic" if args.scenario == "fallback" else "mock-openai"
+        expected = "backup-openai" if args.scenario == "fallback" else "mock-openai"
         assert provider == expected, (provider, expected)
         assert events[-1] == "[DONE]"
         assert payloads[-1]["usage"]["total_tokens"] == 8

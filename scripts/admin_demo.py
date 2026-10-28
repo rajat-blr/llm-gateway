@@ -46,7 +46,9 @@ try:
         deadline = time.monotonic() + 3
         while True:
             report = admin("GET", "/admin/usage?key_id=" + created["id"])
-            if report["attempts"]:
+            # Request and attempt aggregates are separate reads. A concurrent
+            # worker commit can become visible between them; await both views.
+            if sum(row["requests"] for row in report["requests"]) == 1 and sum(row["attempts"] for row in report["attempts"]) == 1:
                 break
             if time.monotonic() >= deadline:
                 raise AssertionError("Usage did not persist within the demo deadline")

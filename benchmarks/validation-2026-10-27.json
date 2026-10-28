@@ -11,7 +11,7 @@
     "reviewer walkthrough": "passed (stream, key/reuse/budget, monitoring, isolated fallback/cancel/drop)",
     "three 120s resource runs": "passed",
     "ten unread large-response rounds": "passed",
-    "live provider JSON/SSE": "not run: credentials and model names not available"
+    "live provider JSON/SSE": "OpenAI passed on 2026-10-28 with gpt-4o-mini; Anthropic live checks unverified (no credential). See live-openai-2026-10-28.json."
   },
   "soak_report": "resource-soak-2026-10-27.json",
   "profile_report": "profiles/investigation.rst",

@@ -21,9 +21,9 @@ Fixtures and pinned SDK acceptance tests require no paid API key.
 The local v1 acceptance work is implemented and validated: protocol/resilience,
 keys/usage, cache/reload, monitoring, repeated load measurements, sustained
 resource checks, and a profiled optimization. The release evidence and its
-limits are linked below. Optional real-provider execution remains unverified
-until local credentials and compatible model names are configured. Fixture
-checks do not establish real-provider behavior or production capacity.
+limits are linked below. OpenAI JSON and SSE live checks passed on October 28,
+2026 with gpt-4o-mini. Anthropic remains fixture-tested only because no Anthropic
+credential is available. Fixture checks do not establish production capacity.
 
 * `Compatibility matrix <docs/compatibility.rst>`_
 * `Acceptance map and commands <docs/release-acceptance.rst>`_
@@ -587,16 +587,33 @@ The earlier resilience commands can reproduce failures directly in the browser.
 Optional live-provider verification
 -------------------------------------
 
-Local execution status: not run; provider credentials and model names have not
-been supplied to the test environment. Configure OPENAI_API_KEY,
-ANTHROPIC_API_KEY, OPENAI_MODEL and ANTHROPIC_MODEL in the environment or an
-ignored .env file (see .env.example). Use text-chat models supporting this
-compatibility subset and max_tokens. Never commit credentials. Run explicitly::
+Local execution status: OpenAI JSON and SSE checks passed on October 28, 2026
+with gpt-4o-mini (two requests, max_tokens=64 each). Sanitized evidence is in
+benchmarks/live-openai-2026-10-28.json. Anthropic credentials are not currently
+available, so its live-provider behavior remains unverified.
+Set OPENAI_API_KEY and OPENAI_MODEL in the environment or an ignored .env file
+(see .env.example). Use a text-chat model supporting this compatibility subset
+and max_tokens. Never commit credentials. Run explicitly::
 
-    python scripts/live_smoke.py --live
+    python scripts/live_smoke.py --provider openai --live
 
-This makes at most four small provider requests: JSON and SSE for each adapter,
-with max_tokens=64. It checks completion shape, stable streaming metadata,
-finish/usage and provider attribution. Only sanitized pass/fail metadata is
-written to tmp/live-smoke.json; credentials and generated text are not recorded.
-Use --env-file /absolute/path/to/local.env for configuration stored elsewhere.
+This makes at most two small OpenAI requests: JSON and SSE, with max_tokens=64.
+It checks completion shape, stable streaming metadata, finish/usage and provider
+attribution. Anthropic remains explicitly unverified in the report.
+
+When Anthropic credentials are available, set ANTHROPIC_API_KEY and
+ANTHROPIC_MODEL and test that adapter independently::
+
+    python scripts/live_smoke.py --provider anthropic --live
+
+Omitting --provider defaults to both adapters (at most four requests). Only
+credentials/model names for selected providers are required. Sanitized pass/fail
+metadata is written to tmp/live-smoke.json; credentials and generated text are
+not recorded. Use --env-file /absolute/path/to/local.env for configuration
+stored elsewhere. Reports identify selected and unverified adapters.
+
+The verified gpt-4o-mini model is deprecated and scheduled to shut down January
+14, 2027. This was a short-term compatibility test, not a default for future
+production use. Check `official model deprecations <https://developers.openai.com/api/docs/deprecations>`_
+before choosing a model for later runs. The current gateway exposes the legacy
+Chat Completions max_tokens subset; choose a model supporting that contract.

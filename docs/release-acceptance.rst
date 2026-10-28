@@ -56,12 +56,13 @@ No closed-loop fixture result establishes an open-loop or production capacity
 limit. A finite soak cannot prove leak freedom. See benchmarks/ for raw data
 and explicit experiment conditions.
 
-Optional paid-provider checks are outside deterministic CI and require both
+Optional paid-provider checks are outside deterministic CI and require the selected provider
 credentials and compatible model names in the environment or ignored .env::
 
-    python3 scripts/live_smoke.py --live
+    python3 scripts/live_smoke.py --provider openai --live
 
-This makes at most four small requests: JSON and SSE for each adapter, with
+This makes at most two OpenAI requests. Select --provider anthropic to test only
+Anthropic, or --provider both to test both (at most four requests). Each uses
 64 output tokens per request. Results contain adapter/mode/pass metadata and
 sanitized failure classes. Credentials and generated text are not written to
 the report. Missing credentials prevent the test; fixtures do not count as

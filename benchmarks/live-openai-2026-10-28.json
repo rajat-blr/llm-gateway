@@ -1,0 +1,29 @@
+{
+  "revision": "23fbb129f415879ba7817ca2c87ffe79c547ad39",
+  "cases": [
+    {
+      "adapter": "openai",
+      "mode": "json",
+      "passed": true,
+      "usage_known": true
+    },
+    {
+      "adapter": "openai",
+      "mode": "stream",
+      "passed": true,
+      "usage_known": true
+    }
+  ],
+  "request_limit": 2,
+  "selected_providers": [
+    "openai"
+  ],
+  "unverified_adapters": [
+    "anthropic"
+  ],
+  "max_output_tokens_per_request": 64,
+  "models": {
+    "openai": "gpt-4o-mini"
+  },
+  "recorded_utc": "2026-10-28T10:21:28.335949+00:00"
+}
